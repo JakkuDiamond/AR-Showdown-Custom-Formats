@@ -12,4 +12,4 @@ RUN printf "\nexports.proxyip = true;\nexports.usesqlite = false;\nexports.usesq
     >> /app/pokemon-showdown/config/config.js
 
 WORKDIR /app/pokemon-showdown
-CMD ["/bin/sh", "-c", "exec node pokemon-showdown ${PORT:-8000}"]
+CMD ["/bin/sh", "-c", "exec node pokemon-showdown --skip-build ${PORT:-8000}"]
