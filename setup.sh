@@ -1,0 +1,3854 @@
+#!/usr/bin/env bash
+# One-file setup: private Pokemon Showdown server with the "VGC Reg M-C Multi Lead+Back" format.
+# The patch is built into this file, so nothing else needs to be copied. Requires: git, Node.js >= 22.18, npm.
+set -euo pipefail
+COMMIT=d601443456c795f77c6e4f2b5b459167f2b10a3c   # Showdown version this was tested against
+PATCH_VERSION=83a3e897
+
+echo "[1/5] setup.sh patch version $PATCH_VERSION"
+PATCH_FILE="$(mktemp)"
+cat >"$PATCH_FILE" <<'VGC_PATCH_EOF'
+diff --git a/config/formats.ts b/config/formats.ts
+index 9a65139..79701cb 100644
+--- a/config/formats.ts
++++ b/config/formats.ts
+@@ -18,6 +18,153 @@ The column value will be ignored for repeat sections.
+ */
+ 
+ export const Formats: import('../sim/dex-formats').FormatList = [
++	{
++		section: "Custom",
++	},
++	{
++		name: "[Gen 9 Champions] VGC Reg M-C Multi Lead+Back",
++		desc: `4 players, 2v2 teams, built on VGC 2026 Reg M-C rules (incl. Open Team Sheets, which all 4 players must accept). Players 1 and 2 bring a team of 6; players 3 and 4 use a copy of their ally's team. Each player picks 2 (lead, then back), with no overlap between allies, and allies see each other's picks. In battle you can also switch to your ally's benched Pok&eacute;mon.`,
++		mod: 'champions',
++		gameType: 'multi',
++		searchShow: false,
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', '!! Picked Team Size = 2', 'Shared Ally Team', 'Shared Bench', 'Confusion Friendly Fire', 'Infatuation Friendly Fire', 'Ally Switch Trade', 'Team Healing', 'One Mega Per Team', 'Partner Item Pass', 'Mutual Sacrifice', 'Overhead Pain', 'Telepathy Insight', 'No Chat'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Reg M-C Multi Lead+Back Bo3",
++		desc: `Best-of-3 version of the Lead+Back multi format: first team to win 2 games wins. Open Team Sheets are mandatory and shown automatically. The same four players and teams play every game.`,
++		mod: 'champions',
++		gameType: 'multi',
++		searchShow: false,
++		ruleset: ['[Gen 9 Champions] VGC Reg M-C Multi Lead+Back', '!Open Team Sheets', 'Force Open Team Sheets', 'Multi Bo3 Series'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Blitz",
++		desc: `VGC Reg M-C in fast forward: Open Team Sheets are mandatory, and a short timer that cannot be turned off (2 minutes of Team Preview, 3 minutes Your Time, 20 seconds per turn).`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', '!VGC Timer', '!Open Team Sheets', 'Force Open Team Sheets', 'VGC Blitz Timer'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Blitz (Bo3)",
++		desc: `Best-of-3 version of VGC Blitz: mandatory Open Team Sheets and a short timer that cannot be turned off.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', '!VGC Timer', '!Open Team Sheets', 'Force Open Team Sheets', 'VGC Blitz Timer', 'Best of = 3'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Ban Pick",
++		desc: `MOBA-style Ban Pick built on VGC 2026 Reg M-C (Open Team Sheets optional): bring 6 Pokémon, secretly ban 1 of your opponent's Pokémon (revealed once both players lock in), and then pick 4 (2 leads + 2 back) from your remaining 5.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', 'Ban Pick'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Ban Pick (Bo3)",
++		desc: `Best-of-3 version of VGC Ban Pick: mandatory Open Team Sheets, bring 6 Pokémon, secretly ban 1 of your opponent's Pokémon each game (cannot ban the same Pokémon two games in a row), and then pick 4 from your remaining 5.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', '!Open Team Sheets', 'Force Open Team Sheets', 'Ban Pick', 'Best of = 3'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Kindred & Enemies",
++		desc: `VGC 2026 Reg M-C with Kindred Spirits & Natural Enemies (Open Team Sheets optional): allied lore pairs resonate for shared buffs when active together, while opposing canonical rivals trigger turf wars and duel mechanics across the field.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', 'Kindred Spirits', 'Natural Enemies'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Kindred & Enemies (Bo3)",
++		desc: `Best-of-3 version of VGC Kindred & Enemies: mandatory Open Team Sheets, allied Kindred Spirits resonances, and opposing Natural Enemies rivalries.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', '!Open Team Sheets', 'Force Open Team Sheets', 'Kindred Spirits', 'Natural Enemies', 'Best of = 3'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Inverse Battle",
++		desc: `Gen 6-style Inverse Battle built on VGC 2026 Reg M-C (Open Team Sheets optional): the type effectiveness chart is inverted so super-effective and resisted matchups are swapped, and type-chart immunities become 2x weaknesses.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', 'Inverse Battle'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Inverse Battle (Bo3)",
++		desc: `Best-of-3 version of VGC Inverse Battle: mandatory Open Team Sheets and inverted type effectiveness.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', '!Open Team Sheets', 'Force Open Team Sheets', 'Inverse Battle', 'Best of = 3'],
++	},
++	{
++		name: "[Gen 9 Champions] Triples Reg M-C",
++		desc: `6v6 Triple Battles built on Pokémon Champions Regulation M-C rules (Closed Team Sheets): bring 6 and send out all 6 (3 active at a time: Left, Center, Right). Positioning determines adjacency for attacks, spread moves, and abilities; flank Pokémon can use Shift to swap with the Center ally, and single-target Flying-type, Pulse, and Aura moves can target any Pokémon regardless of position.`,
++		mod: 'champions',
++		gameType: 'triples',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', '!! Picked Team Size = 6', '!Open Team Sheets', 'Champions Triples'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Reg M-CF",
++		desc: `VGC 2026 Reg M-C expanded with every Sub-Legendary ("Non-Restricted Legendary") Pokémon across Generations 1–9, all of their forms (including Regional, Therian, Mask, Memory, and Mega forms), and their required items (Mega Stones, Soul Dew, Ogerpon Masks, and Silvally Memories). Pre-evolutions (Type: Null and Kubfu) are excluded. Ogerpon receives its +1 Embody Aspect stat boost once per battle on its first switch-in (lost permanently upon switching out). Open Team Sheets optional.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', 'Reg M-CF'],
++	},
++	{
++		name: "[Gen 9 Champions] VGC Reg M-CF (Bo3)",
++		desc: `Best-of-3 version of VGC Reg M-CF: mandatory Open Team Sheets, base Reg M-C pool plus all Sub-Legendary ("Non-Restricted Legendary") Pokémon, their forms, and their required items (excluding pre-evolutions Type: Null and Kubfu), with Ogerpon's once-per-battle +1 Embody Aspect boost on first switch-in.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', '!Open Team Sheets', 'Force Open Team Sheets', 'Reg M-CF', 'Best of = 3'],
++	},
++	{
++		name: "[Gen 9 Champions] VGChess Reg M-C",
++		desc: `Chess-infused VGC 2026 Reg M-C (Open Team Sheets optional): at Team Preview, interactively assign 4 Chess Roles (♔ King, ♕ Queen, ♖ Rook / ♗ Bishop / ♘ Knight, and ♙ Pawn) to the 4 Pokémon you bring. Features positional straight-file & diagonal attacks, Knight Protect-bypass & Forks, Castling, En Passant, Pawn Promotion, and a Regicide win condition (knocking out the enemy ♔ King immediately wins the battle).`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', 'VGChess'],
++	},
++	{
++		name: "[Gen 9 Champions] VGChess Reg M-C (Bo3)",
++		desc: `Best-of-3 version of VGChess Reg M-C: mandatory Open Team Sheets, interactive Chess Role assignment (♔ King, ♕ Queen, ♖ Rook / ♗ Bishop / ♘ Knight, ♙ Pawn), positional piece passives, Castling, En Passant, Pawn Promotion, and Regicide win condition.`,
++		mod: 'champions',
++		gameType: 'doubles',
++		ruleset: ['[Gen 9 Champions] VGC 2026 Reg M-C', '!Open Team Sheets', 'Force Open Team Sheets', 'VGChess', 'Best of = 3'],
++	},
++	{
++		name: "[Gen 1] VGC",
++		desc: `Vanilla Generation 1 (RBY) 2v2 Doubles with standard VGC rules (Closed Team Sheets, Bring 6, Pick 4, Level 50, Species Clause, VGC Timer, no Restricted or Mythical Pokémon — Mewtwo and Mew banned).`,
++		mod: 'gen1',
++		gameType: 'doubles',
++		ruleset: ['RBY VGC'],
++	},
++	{
++		name: "[Gen 1] VGC (Bo3)",
++		desc: `Best-of-3 version of [Gen 1] VGC (Closed Team Sheets): Bring 6 Pick 4 Doubles at Level 50 with vanilla RBY mechanics and Mewtwo & Mew banned.`,
++		mod: 'gen1',
++		gameType: 'doubles',
++		ruleset: ['RBY VGC', 'Best of = 3'],
++	},
++	{
++		name: "[Gen 2] VGC",
++		desc: `Vanilla Generation 2 (GSC) 2v2 Doubles with standard VGC rules (Closed Team Sheets, Bring 6, Pick 4, Level 50, Species Clause, Item Clause = 1, VGC Timer, no Restricted or Mythical Pokémon — Mewtwo, Mew, Lugia, Ho-Oh, and Celebi banned).`,
++		mod: 'gen2',
++		gameType: 'doubles',
++		ruleset: ['GSC VGC'],
++	},
++	{
++		name: "[Gen 2] VGC (Bo3)",
++		desc: `Best-of-3 version of [Gen 2] VGC (Closed Team Sheets): Bring 6 Pick 4 Doubles at Level 50 with vanilla GSC mechanics, Item Clause = 1, and Mewtwo, Mew, Lugia, Ho-Oh, & Celebi banned.`,
++		mod: 'gen2',
++		gameType: 'doubles',
++		ruleset: ['GSC VGC', 'Best of = 3'],
++	},
++	{
++		name: "[Gen 9] ARChess 1v1",
++		desc: `8x8 Pokémon Chess where every capture launches a live Gen 9 Showdown 1v1 Singles duel. Bring 6 Pokémon mapped to Chess Roles: Slot 1 = King, Slot 2 = Queen, Slot 3 = Rook, Slot 4 = Bishop, Slot 5 = Knight, Slot 6 = Pawn.`,
++		mod: 'gen9',
++		gameType: 'singles',
++		ruleset: ['Standard', '!Team Preview', 'Terastal Clause', 'ARChess Engine'],
++		banlist: ['Uber', 'AG', 'Arena Trap', 'Moody', 'Shadow Tag', 'Baton Pass'],
++	},
++
+ 
+ 	// S/V Singles
+ 	///////////////////////////////////////////////////////////////////
+diff --git a/data/conditions.ts b/data/conditions.ts
+index c72966a..a5813d0 100644
+--- a/data/conditions.ts
++++ b/data/conditions.ts
+@@ -188,10 +188,17 @@ export const Conditions: import('../sim/dex-conditions').ConditionDataTable = {
+ 				return;
+ 			}
+ 			this.activeTarget = pokemon;
+ 			const damage = this.actions.getConfusionDamage(pokemon, 40);
++			let victim = pokemon;
++			if (this.ruleTable.has('confusionfriendlyfire')) {
++				// Confusion Friendly Fire: 50% chance to hurt the adjacent ally instead of itself
++				const ally = pokemon.adjacentAllies()[0];
++				if (ally && this.randomChance(1, 2)) victim = ally;
++			}
+ 			if (typeof damage !== 'number') throw new Error("Confusion damage not dealt");
+ 			const activeMove = { id: this.toID('confused'), effectType: 'Move', type: '???' };
+-			this.damage(damage, pokemon, pokemon, activeMove as ActiveMove);
++			if (victim !== pokemon) this.add('-message', `${pokemon.name} hurt its ally ${victim.name} in its confusion!`);
++			this.damage(damage, victim, pokemon, activeMove as ActiveMove);
+ 			return false;
+ 		},
+ 	},
+@@ -440,6 +447,240 @@ export const Conditions: import('../sim/dex-conditions').ConditionDataTable = {
+ 			}
+ 		},
+ 	},
++	lentitem: {
++		// Partner Item Pass: the item an ally lent with Helping Hand goes back at the end of the turn
++		name: 'lentitem',
++		duration: 1,
++		onStart(pokemon, source) {
++			this.effectState.owner = source;
++			this.effectState.itemId = pokemon.item;
++		},
++		onEnd(pokemon) {
++			const owner: Pokemon | undefined = this.effectState.owner;
++			const itemId: string = this.effectState.itemId;
++			if (!owner || owner.fainted || owner.item || pokemon.item !== itemId) return;
++			pokemon.setItem('');
++			owner.setItem(itemId);
++			this.add('-message', `${pokemon.name} gave ${this.dex.items.get(itemId).name} back to ${owner.name}.`);
++		},
++	},
++	blitztimeout: {
++		// VGC Blitz Timer: 10% chance to hit itself in confusion, 10% chance to do nothing when turn time runs out
++		name: 'blitztimeout',
++		duration: 1,
++		onModifyPriority() {
++			return 0;
++		},
++		onBeforeMovePriority: 7,
++		onBeforeMove(pokemon) {
++			const outcome = this.effectState.outcome;
++			pokemon.removeVolatile('blitztimeout');
++			if (outcome === 'confusion') {
++				this.add('-activate', pokemon, 'confusion');
++				this.add('-message', `${pokemon.name} panicked from the timer and hurt itself in its confusion!`);
++				this.activeTarget = pokemon;
++				const damage = this.actions.getConfusionDamage(pokemon, 40);
++				if (typeof damage !== 'number') throw new Error("Confusion damage not dealt");
++				const activeMove = { id: this.toID('confused'), effectType: 'Move', type: '???' };
++				this.damage(damage, pokemon, pokemon, activeMove as ActiveMove);
++				return false;
++			}
++			if (outcome === 'nothing') {
++				this.add('-message', `${pokemon.name} ran out of time and did nothing!`);
++				return false;
++			}
++		},
++	},
++	kindredaura: {
++		// Kindred Spirits & Natural Enemies passive battle modifiers
++		name: 'kindredaura',
++		onBasePowerPriority: 21,
++		onBasePower(basePower, attacker, defender, move) {
++			const mult = this.getKindredBasePowerMult(attacker, defender, move);
++			if (mult !== 1) return this.chainModify(mult);
++		},
++		onModifySTAB(stab, source, target, move) {
++			if (this.hasKindredEffect(source, 'abyssalartillery') && !source.hasAbility('adaptability')) {
++				if (move.forceSTAB || source.hasType(move.type)) {
++					return stab === 2 ? 2.25 : 2;
++				}
++			}
++		},
++		onModifySpe(spe, pokemon) {
++			if (this.hasKindredEffect(pokemon, 'pondsovereign') && this.toID(pokemon.species.baseSpecies) === 'poliwrath' &&
++				!pokemon.hasAbility('swiftswim') && ['raindance', 'primordialsea'].includes(pokemon.effectiveWeather())) {
++				return this.chainModify(2);
++			}
++			if (this.hasKindredEffect(pokemon, 'highvoltagesurf') && pokemon.species.id === 'raichualola' &&
++				(!this.field.isTerrain('electricterrain') || !pokemon.hasAbility('surgesurfer'))) {
++				return this.chainModify(2);
++			}
++		},
++		onModifyCritRatio(critRatio, source) {
++			if (this.hasKindredEffect(source, 'mastersquire')) return critRatio + 2;
++			if (this.hasKindredEffect(source, 'twinmantis') && this.toID(source.species.baseSpecies) === 'scizor') {
++				return critRatio + 1;
++			}
++		},
++		onModifyPriority(priority, pokemon, target, move) {
++			if (this.hasEnemyEffect(pokemon, 'catanddog_feline') && ['encore', 'fakeout'].includes(move.id)) {
++				return priority + 1;
++			}
++			if (this.hasEnemyEffect(pokemon, 'predatorprey_heatmor') && move.type === 'Fire') {
++				return priority + 1;
++			}
++		},
++		onModifyMovePriority: -5,
++		onModifyMove(move, pokemon, target) {
++			if (this.hasKindredEffect(pokemon, 'faefolk') && this.toID(pokemon.species.baseSpecies) === 'grimmsnarl' &&
++				move.category === 'Status' && this.field.isTerrain('psychicterrain')) {
++				move.priority = 0.1;
++			}
++			if (this.hasKindredEffect(pokemon, 'caveambush')) {
++				const base = this.toID(pokemon.species.baseSpecies);
++				if (base === 'sableye' && move.category === 'Status') {
++					delete move.pranksterBoosted;
++				}
++				if (base === 'mawile' && move.id === 'playrough') {
++					move.accuracy = true;
++				}
++			}
++			if (this.hasKindredEffect(pokemon, 'steepedhospitality') &&
++				['matchagotcha', 'shadowball'].includes(move.id) && move.secondaries) {
++				for (const sec of move.secondaries) {
++					if (sec.chance) sec.chance = Math.min(100, sec.chance * 2);
++				}
++			}
++			if (this.hasEnemyEffect(pokemon, 'saptreebrawl')) {
++				move.ignoreAbility = true;
++			}
++			if (this.hasEnemyEffect(pokemon, 'titanclash') && move.spreadHit) {
++				move.accuracy = true;
++			}
++			if (this.hasEnemyEffect(pokemon, 'predatorprey_heatmor') && move.type === 'Fire') {
++				move.accuracy = true;
++			}
++		},
++		onRedirectTarget(target, pokemon, source, move) {
++			if (this.hasEnemyEffect(pokemon, 'duelofhonor') && move.category !== 'Status' &&
++				['normal', 'any', 'adjacentFoe'].includes(move.target) && target && !target.isAlly(pokemon)) {
++				const rivalId = this.toID(pokemon.species.baseSpecies) === 'armarouge' ? 'ceruledge' : 'armarouge';
++				const rival = pokemon.side.foes().find(foe => !foe.fainted && this.toID(foe.species.baseSpecies) === rivalId);
++				if (rival && target !== rival) {
++					this.add('-message', `Duel of Honor: ${pokemon.name}'s attack is drawn to its rival ${rival.name}!`);
++					return rival;
++				}
++			}
++		},
++		onTryHit(target, source, move) {
++			if (target !== source && target.isAlly(source)) {
++				if ((move.flags['sound'] || move.id === 'drumbeating') && this.hasKindredEffect(source, 'ampedrhythm')) {
++					this.add('-activate', target, 'ability: Telepathy');
++					return null;
++				}
++				if (move.spreadHit && this.hasKindredEffect(target, 'jungletactics') &&
++					this.toID(target.species.baseSpecies) === 'oranguru' &&
++					this.toID(source.species.baseSpecies) === 'passimian') {
++					this.add('-activate', target, 'ability: Telepathy');
++					return null;
++				}
++			}
++		},
++		onEffectiveness(typeMod, target, type, move) {
++			if (!target || !this.activePokemon) return;
++			const attacker = this.activePokemon;
++			if (this.hasEnemyEffect(attacker, 'skyhunter') && this.toID(attacker.species.baseSpecies) === 'tinkaton' &&
++				['corviknight', 'skarmory'].includes(this.toID(target.species.baseSpecies)) &&
++				(move.id === 'gigatonhammer' || ['Rock', 'Steel'].includes(move.type)) && typeMod < 0) {
++				return 0;
++			}
++			if (this.hasEnemyEffect(attacker, 'coralgrudge_corsola') &&
++				['toxapex', 'mareanie'].includes(this.toID(target.species.baseSpecies)) && typeMod < 0) {
++				return 0;
++			}
++		},
++		onSourceModifyDamage(damage, source, target, move) {
++			if (this.hasKindredEffect(target, 'faefolk') && this.toID(target.species.baseSpecies) === 'hatterene' &&
++				['Steel', 'Poison'].includes(move.type)) {
++				return this.chainModify(0.75);
++			}
++		},
++		onAfterMoveSecondarySelf(source, target, move) {
++			if (this.hasKindredEffect(source, 'twinmantis') && this.toID(source.species.baseSpecies) === 'scizor' &&
++				move.category !== 'Status' && target && !target.isAlly(source) && !target.side.getSideCondition('stealthrock')) {
++				target.side.addSideCondition('stealthrock', source);
++			}
++			if (this.hasKindredEffect(source, 'fireflyserenade')) {
++				const ally = source.adjacentAllies()[0];
++				if (ally && !ally.fainted && (move.type === 'Bug' || move.category === 'Status')) {
++					this.heal(ally.baseMaxhp / 8, ally, source);
++				}
++			}
++		},
++		onTryBoost(boost, target, source, effect) {
++			if (source && target !== source && !target.isAlly(source)) {
++				if (this.hasKindredEffect(target, 'sweetsavory') ||
++					(this.hasEnemyEffect(target, 'felinesupremacy') && this.toID(target.species.baseSpecies) === 'meowscarada')) {
++					let showMsg = false;
++					let i: BoostID;
++					for (i in boost) {
++						if (boost[i]! < 0) {
++							delete boost[i];
++							showMsg = true;
++						}
++					}
++					if (showMsg && !(effect as ActiveMove).secondaries) {
++						this.add('-fail', target, 'unboost', '[from] Kindred/Rival Aura', `[of] ${target}`);
++					}
++				}
++			}
++		},
++		onAfterEachBoost(boost, target, source) {
++			if (!source || target.isAlly(source)) return;
++			if (this.hasEnemyEffect(target, 'saptreebrawl') && !target.hasAbility('defiant')) {
++				let statsLowered = false;
++				let i: BoostID;
++				for (i in boost) {
++					if (boost[i]! < 0) statsLowered = true;
++				}
++				if (statsLowered) {
++					this.boost({ atk: 2 }, target, target);
++				}
++			}
++		},
++		onTryAddVolatile(status, pokemon) {
++			if (this.hasKindredEffect(pokemon, 'sweetsavory') &&
++				['attract', 'disable', 'encore', 'healblock', 'taunt', 'torment'].includes(status.id)) {
++				return null;
++			}
++			if (this.hasEnemyEffect(pokemon, 'saptreebrawl') && status.id === 'flinch') {
++				return null;
++			}
++		},
++		onSetStatus(status, target) {
++			if (this.hasKindredEffect(target, 'twingenerators') && ['par', 'brn'].includes(status.id)) {
++				return false;
++			}
++		},
++		onTryHeal(damage, target, source, effect) {
++			if (this.hasEnemyEffect(target, 'reefturfwar_toxapex') &&
++				effect && ['blacksludge', 'regenerator'].includes(effect.id)) {
++				return false;
++			}
++		},
++		onResidualOrder: 28,
++		onResidual(pokemon) {
++			if (this.hasKindredEffect(pokemon, 'twinminds')) {
++				this.heal(pokemon.baseMaxhp / 8, pokemon);
++			}
++			if (this.hasKindredEffect(pokemon, 'orchardharvest') && !pokemon.item && pokemon.lastItem &&
++				this.dex.items.get(pokemon.lastItem).isBerry) {
++				pokemon.setItem(pokemon.lastItem);
++				pokemon.lastItem = '';
++				this.add('-item', pokemon, pokemon.getItem(), '[from] Kindred Spirits: Orchard Harvest');
++			}
++		},
++	},
+ 	stall: {
+ 		// Protect, Detect, Endure counter
+ 		name: 'stall',
+diff --git a/data/moves.ts b/data/moves.ts
+index 2808538..b2a9437 100644
+--- a/data/moves.ts
++++ b/data/moves.ts
+@@ -312,6 +312,29 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
+ 			return pokemon.addVolatile('allyswitch');
+ 		},
+ 		onHit(pokemon) {
++			if (this.ruleTable.has('allyswitchtrade') && this.gameType === 'multi') {
++				// Ally Switch Trade: trade active Pokemon (and who controls them) with the ally
++				const ally = pokemon.adjacentAllies()[0];
++				if (!ally || ally.fainted) {
++					this.add('-fail', pokemon, 'move: Ally Switch');
++					this.attrLastMove('[still]');
++					return this.NOT_FAIL;
++				}
++				this.tradeActiveAllies(pokemon, ally);
++				return;
++			}
++			if (this.ruleTable.has('vgchess')) {
++				const ally = pokemon.adjacentAllies()[0];
++				const roles = new Set([(pokemon as any).chessRole, (ally as any)?.chessRole]);
++				if (ally && !ally.fainted && roles.has('king') && roles.has('rook') && !(pokemon.side as any).castlingUsed) {
++					(pokemon.side as any).castlingUsed = true;
++					const king = (pokemon as any).chessRole === 'king' ? pokemon : ally;
++					const rook = (pokemon as any).chessRole === 'rook' ? pokemon : ally;
++					(rook.m as any).castledTurn = this.turn;
++					this.heal(Math.max(1, Math.floor(king.baseMaxhp / 4)), king, rook);
++					this.add('-message', `Castling! ♔ ${king.name} and ♖ ${rook.name} castle across the board (King heals 25% HP; Rook takes 0.5x damage this turn)!`);
++				}
++			}
+ 			let success = true;
+ 			// Fail in formats where you don't control allies
+ 			if (this.gameType !== 'doubles' && this.gameType !== 'triples') success = false;
+@@ -743,6 +766,19 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
+ 			onBeforeMove(pokemon, target, move) {
+ 				this.add('-activate', pokemon, 'move: Attract', '[of] ' + this.effectState.source);
+ 				if (this.randomChance(1, 2)) {
++					if (this.ruleTable.has('infatuationfriendlyfire') && move.category !== 'Status' &&
++						['normal', 'any', 'adjacentFoe', 'randomNormal'].includes(move.target)) {
++						// Infatuation Friendly Fire: 50% of the time, attack the ally at half damage instead of being immobilized
++						const ally = pokemon.adjacentAllies()[0];
++						if (ally && this.randomChance(1, 2)) {
++							this.add('-message', `${pokemon.name} is so infatuated it attacks its ally ${ally.name}!`);
++							pokemon.deductPP(move.id, 1, ally);
++							this.effectState.friendlyFire = true;
++							this.actions.useMove(move, pokemon, { target: ally });
++							delete this.effectState.friendlyFire;
++							return false;
++						}
++					}
+ 					this.add('cant', pokemon, 'Attract');
+ 					return false;
+ 				}
+@@ -5310,6 +5346,21 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
+ 			pokemon.faint();
+ 			return damage;
+ 		},
++		onHit(target, source) {
++			// Mutual Sacrifice: 75% chance to give the user's ally 3 random stat boosts (can stack on the same stat)
++			if (!this.ruleTable.has('mutualsacrifice')) return;
++			const ally = source.adjacentAllies()[0];
++			if (ally && ally !== target && this.randomChance(3, 4)) {
++				const stats: ('atk' | 'def' | 'spa' | 'spd' | 'spe')[] = ['atk', 'def', 'spa', 'spd', 'spe'];
++				const boosts: { [k in 'atk' | 'def' | 'spa' | 'spd' | 'spe']?: number } = {};
++				for (let i = 0; i < 3; i++) {
++					const stat = this.sample(stats);
++					boosts[stat] = (boosts[stat] || 0) + 1;
++				}
++				this.add('-message', `${source.name} passes its strength on to ${ally.name}!`);
++				this.boost(boosts, ally, source);
++			}
++		},
+ 		selfdestruct: "ifHit",
+ 		category: "Special",
+ 		name: "Final Gambit",
+@@ -8586,6 +8637,17 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
+ 		onTryHit(target) {
+ 			if (!target.newlySwitched && !this.queue.willMove(target)) return false;
+ 		},
++		onHit(target, source) {
++			// Partner Item Pass: lend the user's item to an ally that holds nothing, until the end of the turn
++			if (!this.ruleTable.has('partneritempass') || !source.item || target.item || target === source) return;
++			const item = source.getItem();
++			const lent = source.takeItem(source);
++			if (!lent) return;
++			target.setItem(lent);
++			target.addVolatile('lentitem', source);
++			this.add('-message', `${source.name} handed its ${item.name} to ${target.name} for the turn!`);
++			this.add('-item', target, item.name, '[from] move: Helping Hand', `[of] ${source}`);
++		},
+ 		condition: {
+ 			duration: 1,
+ 			onStart(target, source) {
+@@ -11632,6 +11694,21 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
+ 			atk: -2,
+ 			spa: -2,
+ 		},
++		onHit(target, source) {
++			// Mutual Sacrifice: 75% chance to give the user's ally 3 random stat boosts (can stack on the same stat)
++			if (!this.ruleTable.has('mutualsacrifice')) return;
++			const ally = source.adjacentAllies()[0];
++			if (ally && ally !== target && this.randomChance(3, 4)) {
++				const stats: ('atk' | 'def' | 'spa' | 'spd' | 'spe')[] = ['atk', 'def', 'spa', 'spd', 'spe'];
++				const boosts: { [k in 'atk' | 'def' | 'spa' | 'spd' | 'spe']?: number } = {};
++				for (let i = 0; i < 3; i++) {
++					const stat = this.sample(stats);
++					boosts[stat] = (boosts[stat] || 0) + 1;
++				}
++				this.add('-message', `${source.name} passes its strength on to ${ally.name}!`);
++				this.boost(boosts, ally, source);
++			}
++		},
+ 		selfdestruct: "ifHit",
+ 		target: "normal",
+ 		type: "Dark",
+@@ -15115,9 +15192,10 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
+ 		priority: 0,
+ 		flags: { heal: 1, nosketch: 1 },
+ 		onTryHit(source) {
+-			if (!source.side.pokemon.filter(ally => ally.fainted).length) {
+-				return false;
+-			}
++			if (source.side.pokemon.some(ally => ally.fainted)) return;
++			// Team Healing: fainted Pokemon on the ally's side count too
++			if (this.ruleTable.has('teamhealing') && source.side.allySide?.pokemon.some(ally => ally.fainted)) return;
++			return false;
+ 		},
+ 		slotCondition: 'revivalblessing',
+ 		// No this not a real switchout move
+diff --git a/data/rulesets.ts b/data/rulesets.ts
+index 5103c04..76f3d0c 100644
+--- a/data/rulesets.ts
++++ b/data/rulesets.ts
+@@ -775,6 +775,1513 @@ export const Rulesets: import('../sim/dex-formats').FormatDataTable = {
+ 			'Timer Add Per Turn = 5', 'Timer Max Per Turn = 15', 'Timer Max First Turn = 40',
+ 		],
+ 	},
++	hideallybench: {
++		effectType: 'Rule',
++		name: 'Hide Ally Bench',
++		desc: "In multi battles, hides your teammate's unrevealed Pok&eacute;mon (their back Pok&eacute;mon) from you until they are sent out",
++		onBegin() {
++			this.add('rule', 'Hide Ally Bench: Your teammate\'s back Pokemon is hidden until it is sent out');
++		},
++	},
++	nochat: {
++		effectType: 'Rule',
++		name: 'No Chat',
++		desc: "Disables chat in this battle room for everyone, and blocks private messages between the battle's players. Battle buttons and commands (including Open Team Sheets Accept/Reject) still work",
++		onBegin() {
++			this.add('rule', 'No Chat: Chat is disabled in this battle.');
++		},
++	},
++	telepathyinsight: {
++		effectType: 'Rule',
++		name: 'Telepathy Insight',
++		desc: "In multi battles, a Pok&eacute;mon with the ability Telepathy is told which move its ally locked in, as long as it has not chosen its own move yet",
++		onBegin() {
++			this.add('rule', 'Telepathy Insight: A Pokemon with Telepathy sees its ally\'s chosen move if it has not chosen yet.');
++		},
++	},
++	partneritempass: {
++		effectType: 'Rule',
++		name: 'Partner Item Pass',
++		desc: "In multi battles, Helping Hand also lends the user's held item to its ally for the turn (if the ally holds nothing). The item goes back at the end of the turn unless it was used up",
++		onBegin() {
++			this.add('rule', 'Partner Item Pass: Helping Hand lends your held item to your ally for the turn.');
++		},
++	},
++	mutualsacrifice: {
++		effectType: 'Rule',
++		name: 'Mutual Sacrifice',
++		desc: "In multi battles, when a Pok&eacute;mon faints using Memento or Final Gambit, its ally has a 75% chance to get 3 random stat boosts (which can stack on the same stat), and a 25% chance of nothing happening",
++		onBegin() {
++			this.add('rule', 'Mutual Sacrifice: Memento and Final Gambit have a 75% chance to give your ally 3 random stat boosts.');
++		},
++	},
++	overheadpain: {
++		effectType: 'Rule',
++		name: 'Overhead Pain',
++		desc: "In multi battles, a spread move that hits the user's own ally deals 1.5x damage if both partners are at 50% HP or less",
++		onBegin() {
++			this.add('rule', 'Overhead Pain: Spread moves hurt your ally 1.5x as much when you are both at half HP or less.');
++		},
++		onModifyDamage(damage, source, target, move) {
++			if (!move.spreadHit || source === target || !source.isAlly(target)) return;
++			if (source.hp * 2 > source.maxhp || target.hp * 2 > target.maxhp) return;
++			this.add('-message', `${source.name}'s attack hurts its weakened ally ${target.name} even more!`);
++			return this.chainModify(1.5);
++		},
++	},
++	onemegaperteam: {
++		effectType: 'Rule',
++		name: 'One Mega Per Team',
++		desc: "In multi battles, only one Pok&eacute;mon on each team (you and your ally) can Mega Evolve per battle",
++		onBegin() {
++			this.add('rule', 'One Mega Per Team: Only one Pokemon per team can Mega Evolve.');
++		},
++	},
++	multibo3series: {
++		effectType: 'Rule',
++		name: 'Multi Bo3 Series',
++		desc: "A best-of-3 series for 4-player multi battles: after each game the same four players are put into the next game with the same teams, until one team wins 2 games",
++		onBegin() {
++			this.add('rule', 'Best-of-3: The first team to win 2 games wins the series.');
++		},
++	},
++	allyswitchtrade: {
++		effectType: 'Rule',
++		name: 'Ally Switch Trade',
++		desc: "In multi battles, Ally Switch trades the user's active Pok&eacute;mon with its ally's active Pok&eacute;mon, so the two players swap control of them",
++		onBegin() {
++			this.add('rule', 'Ally Switch Trade: Ally Switch swaps your active Pokemon with your ally\'s, and you swap control of them.');
++		},
++	},
++	teamhealing: {
++		effectType: 'Rule',
++		name: 'Team Healing',
++		desc: "In multi battles, Revival Blessing can revive any fainted Pok&eacute;mon on the team of 4, including ones your ally controls (Heal Bell and Aromatherapy already cure the whole team)",
++		onBegin() {
++			this.add('rule', 'Team Healing: Revival Blessing can revive your ally\'s fainted Pokemon too.');
++		},
++	},
++	infatuationfriendlyfire: {
++		effectType: 'Rule',
++		name: 'Infatuation Friendly Fire',
++		desc: "When an infatuated Pok&eacute;mon would be immobilized by love, there is a 50% chance it uses its single-target damaging move on its ally instead, dealing 50% damage",
++		onBegin() {
++			this.add('rule', 'Infatuation Friendly Fire: An infatuated Pokemon may attack its ally at half damage instead of being immobilized.');
++		},
++		onModifyDamage(damage, source, target, move) {
++			if (source !== target && source.isAlly(target) && source.volatiles['attract']?.friendlyFire) {
++				return this.chainModify(0.5);
++			}
++		},
++	},
++	confusionfriendlyfire: {
++		effectType: 'Rule',
++		name: 'Confusion Friendly Fire',
++		desc: "When a confused Pok&eacute;mon hurts itself in its confusion, there is a 50% chance it hits its ally instead (dealing the same damage it would have dealt to itself)",
++		onBegin() {
++			this.add('rule', 'Confusion Friendly Fire: A confused Pokemon may hit its ally instead of itself.');
++		},
++	},
++	banpick: {
++		effectType: 'Rule',
++		name: 'Ban Pick',
++		desc: "At Team Preview, each player secretly bans 1 of their opponent's 6 Pok&eacute;mon (revealed simultaneously once both players lock in; in Best-of-3, you cannot ban the same Pok&eacute;mon two games in a row), and then picks 4 Pok&eacute;mon (2 leads + 2 back) from their remaining 5",
++		onBegin() {
++			this.add('rule', "Ban Pick: Each player secretly bans 1 of their opponent's Pokemon before picking 4 of their remaining 5 (in Bo3, you cannot ban the same Pokemon two games in a row).");
++		},
++	},
++	kindredspirits: {
++		effectType: 'Rule',
++		name: 'Kindred Spirits',
++		desc: "When two canonical Kindred Spirit Pok&eacute;mon are active together on your side of the field (respecting Species Clause), they resonate and grant shared field buffs, stat boosts, or combined abilities",
++		onBegin() {
++			this.add('rule', 'Kindred Spirits: Canonical allied pairs resonate on the field for shared buffs and combined traits.');
++		},
++		onSwitchInPriority: -10,
++		onSwitchIn(pokemon) {
++			if (!pokemon.volatiles['kindredaura']) pokemon.addVolatile('kindredaura');
++			this.updateKindredAndEnemies();
++		},
++		onAfterMega() {
++			this.updateKindredAndEnemies();
++		},
++	},
++	naturalenemies: {
++		effectType: 'Rule',
++		name: 'Natural Enemies',
++		desc: "When canonical rival or predator/prey Pok&eacute;mon face each other across the field, they trigger turf wars, duel locks, or rivalry stat adjustments",
++		onBegin() {
++			this.add('rule', 'Natural Enemies: Canonical rivals facing each other across the field trigger turf wars and duel mechanics.');
++		},
++		onSwitchInPriority: -10,
++		onSwitchIn(pokemon) {
++			if (!pokemon.volatiles['kindredaura']) pokemon.addVolatile('kindredaura');
++			this.updateKindredAndEnemies();
++		},
++		onAfterMega() {
++			this.updateKindredAndEnemies();
++		},
++	},
++	inversebattle: {
++		effectType: 'Rule',
++		name: 'Inverse Battle',
++		desc: "Inverts the type effectiveness chart: super-effective and not-very-effective matchups are swapped, and type-chart immunities become 2x super-effective weaknesses (ability and item immunities like Levitate or Air Balloon still apply)",
++		onBegin() {
++			this.add('rule', 'Inverse Battle: Type effectiveness is inverted (immunities and resistances become weaknesses, and weaknesses become resistances).');
++		},
++		onNegateImmunity: false,
++		onEffectivenessPriority: -2,
++		onEffectiveness(typeMod, target, type, move) {
++			if (move && move.id === 'freezedry' && type === 'Water') return;
++			if (move && !this.dex.getImmunity(move, type)) {
++				return 1 - (move.id === 'flyingpress' ? this.dex.getEffectiveness('Flying', type) : 0);
++			}
++			return -typeMod;
++		},
++	},
++	championstriples: {
++		effectType: 'Rule',
++		name: 'Champions Triples',
++		desc: "6v6 Triple Battle rules for Pokémon Champions Reg M-C: 3 active Pokémon per side (Left, Center, Right) with all 6 Pokémon participating. Flank Pokémon only hit adjacent targets unless using single-target Flying-type, Pulse/Aura, or sniping moves, and can use Shift (priority 0) to swap with the Center ally",
++		onBegin() {
++			this.add('rule', 'Champions Triples: 6v6 Triple Battle (Left, Center, Right). Flank Pokemon can Shift to the Center, and single-target Flying/Pulse/Aura moves hit any position.');
++			for (const pokemon of this.getAllPokemon()) {
++				for (const slot of [...pokemon.baseMoveSlots, ...pokemon.moveSlots]) {
++					const move = this.dex.moves.get(slot.id);
++					if (move.target === 'normal' && ((move.type === 'Flying' && move.category !== 'Status') || move.flags['pulse'] || move.id === 'snipeshot')) {
++						slot.target = 'any';
++						try { (move as any).target = 'any'; } catch {}
++					}
++				}
++			}
++		},
++		onSwitchIn(pokemon) {
++			for (const slot of pokemon.moveSlots) {
++				const move = this.dex.moves.get(slot.id);
++				if (move.target === 'normal' && ((move.type === 'Flying' && move.category !== 'Status') || move.flags['pulse'] || move.id === 'snipeshot')) {
++					slot.target = 'any';
++				}
++			}
++		},
++		onModifyMove(move) {
++			if (move.target === 'normal' && ((move.type === 'Flying' && move.category !== 'Status') || move.flags['pulse'] || move.id === 'snipeshot')) {
++				move.target = 'any';
++			}
++		},
++	},
++	regmcf: {
++		effectType: 'Rule',
++		name: 'Reg M-CF',
++		desc: "Adds all Sub-Legendary ('Non-Restricted Legendary') Pokémon across Generations 1–9, all of their forms, and their required items (Mega Stones, Soul Dew, Ogerpon Masks, and Silvally Memories) to the Regulation M-C pool (excluding Type: Null and Kubfu), and grants Ogerpon its +1 Embody Aspect stat boost once per battle on its first switch-in (lost permanently upon switching out)",
++		ruleset: [
++			'+Articuno', '+Articuno-Galar', '+Zapdos', '+Zapdos-Galar', '+Moltres', '+Moltres-Galar',
++			'+Raikou', '+Entei', '+Suicune',
++			'+Regirock', '+Regice', '+Registeel', '+Latias', '+Latias-Mega', '+Latios', '+Latios-Mega',
++			'+Uxie', '+Mesprit', '+Azelf', '+Heatran', '+Heatran-Mega', '+Regigigas', '+Cresselia',
++			'+Cobalion', '+Terrakion', '+Virizion', '+Tornadus', '+Tornadus-Therian', '+Thundurus', '+Thundurus-Therian', '+Landorus', '+Landorus-Therian',
++			'+Silvally', '+Tapu Koko', '+Tapu Lele', '+Tapu Bulu', '+Tapu Fini',
++			'+Urshifu', '+Urshifu-Rapid-Strike', '+Regieleki', '+Regidrago', '+Glastrier', '+Spectrier', '+Enamorus', '+Enamorus-Therian',
++			'+Wo-Chien', '+Chien-Pao', '+Ting-Lu', '+Chi-Yu', '+Okidogi', '+Munkidori', '+Fezandipiti',
++			'+Ogerpon', '+Ogerpon-Wellspring', '+Ogerpon-Hearthflame', '+Ogerpon-Cornerstone',
++			'+Latiasite', '+Latiosite', '+Heatranite', '+Soul Dew',
++			'+Wellspring Mask', '+Hearthflame Mask', '+Cornerstone Mask',
++			'+Bug Memory', '+Dark Memory', '+Dragon Memory', '+Electric Memory', '+Fairy Memory', '+Fighting Memory',
++			'+Fire Memory', '+Flying Memory', '+Ghost Memory', '+Grass Memory', '+Ground Memory', '+Ice Memory',
++			'+Poison Memory', '+Psychic Memory', '+Rock Memory', '+Steel Memory', '+Water Memory',
++		],
++		onBegin() {
++			this.add('rule', 'Reg M-CF: All Sub-Legendary (Non-Restricted Legendary) Pokemon, their forms, and their required items are legal (Type: Null and Kubfu excluded). Ogerpon gains its +1 Embody Aspect boost once per battle on its first switch-in (lost permanently if switched out).');
++		},
++		onSwitchIn(pokemon) {
++			if (this.toID(pokemon.species.baseSpecies || pokemon.species.name) !== 'ogerpon') return;
++			if ((pokemon.m as any).embodyAspectUsed) return;
++			(pokemon.m as any).embodyAspectUsed = true;
++			let stat: BoostID = 'spe';
++			let abilId = 'embodyaspectteal';
++			if (pokemon.species.id === 'ogerponwellspring') {
++				stat = 'spd';
++				abilId = 'embodyaspectwellspring';
++			} else if (pokemon.species.id === 'ogerponhearthflame') {
++				stat = 'atk';
++				abilId = 'embodyaspecthearthflame';
++			} else if (pokemon.species.id === 'ogerponcornerstone') {
++				stat = 'def';
++				abilId = 'embodyaspectcornerstone';
++			}
++			const boosted = this.boost({ [stat]: 1 }, pokemon, pokemon, this.dex.abilities.get(abilId));
++			if (boosted) {
++				(pokemon.m as any).embodyAspectActiveStat = stat;
++			}
++		},
++		onSwitchOut(pokemon) {
++			const stat: BoostID | undefined = (pokemon.m as any).embodyAspectActiveStat;
++			if (stat) {
++				if (pokemon.boosts[stat] > 0) {
++					pokemon.boosts[stat]--;
++				}
++				delete (pokemon.m as any).embodyAspectActiveStat;
++			}
++		},
++		onChangeSet(set) {
++			const species = this.dex.species.get(set.species);
++			const baseId = this.toID(species.baseSpecies || species.name);
++			if (species.id === 'typenull' || species.id === 'kubfu' || baseId === 'typenull' || baseId === 'kubfu') {
++				return [`${species.name} is banned in Reg M-CF (pre-evolutions of Sub-Legendaries are not allowed).`];
++			}
++			const subLegends = new Set([
++				'articuno', 'zapdos', 'moltres', 'raikou', 'entei', 'suicune',
++				'regirock', 'regice', 'registeel', 'latias', 'latios',
++				'uxie', 'mesprit', 'azelf', 'heatran', 'regigigas', 'cresselia',
++				'cobalion', 'terrakion', 'virizion', 'tornadus', 'thundurus', 'landorus',
++				'silvally', 'tapukoko', 'tapulele', 'tapubulu', 'tapufini',
++				'urshifu', 'regieleki', 'regidrago', 'glastrier', 'spectrier', 'enamorus',
++				'wochien', 'chienpao', 'tinglu', 'chiyu', 'okidogi', 'munkidori', 'fezandipiti', 'ogerpon',
++			]);
++			const subLegendItems = new Set([
++				'latiasite', 'latiosite', 'heatranite', 'souldew',
++				'wellspringmask', 'hearthflamemask', 'cornerstonemask',
++				'bugmemory', 'darkmemory', 'dragonmemory', 'electricmemory', 'fairymemory', 'fightingmemory',
++				'firememory', 'flyingmemory', 'ghostmemory', 'grassmemory', 'groundmemory', 'icememory',
++				'poisonmemory', 'psychicmemory', 'rockmemory', 'steelmemory', 'watermemory',
++			]);
++			const item = this.dex.items.get(set.item);
++			if (item.exists && subLegendItems.has(item.id)) {
++				this.ruleTable.set('+item:' + item.id, '');
++			}
++			if (!subLegends.has(baseId) && !subLegends.has(species.id)) return;
++			this.ruleTable.set('+pokemon:' + species.id, '');
++			this.ruleTable.set('+basepokemon:' + baseId, '');
++			if (item.exists && (item.megaStone || item.forcedForme)) {
++				const targetForme = this.dex.species.get(item.megaStone || item.forcedForme);
++				if (targetForme.exists) {
++					this.ruleTable.set('+pokemon:' + targetForme.id, '');
++					for (const abilName of Object.values(targetForme.abilities)) {
++						if (abilName) this.ruleTable.set('+ability:' + this.toID(abilName), '');
++					}
++				}
++			}
++			for (const abilName of Object.values(species.abilities)) {
++				if (abilName) this.ruleTable.set('+ability:' + this.toID(abilName), '');
++			}
++			const gen9Dex = this.dex.forGen(9);
++			const gen8Dex = this.dex.forGen(8);
++			const canLearnInMainline = (moveId: string) => {
++				for (const d of [this.dex, gen9Dex, gen8Dex]) {
++					for (const sid of [species.id, baseId, this.toID(species.changesFrom), this.toID(species.prevo)]) {
++						if (!sid) continue;
++						const lset = d.species.getLearnsetData(sid)?.learnset;
++						if (lset && lset[moveId]) return true;
++					}
++				}
++				return false;
++			};
++			for (const moveName of set.moves || []) {
++				const move = this.dex.moves.get(moveName);
++				if (move.exists && canLearnInMainline(move.id)) {
++					if (!this.ruleTable.has('-move:' + move.id)) {
++						this.ruleTable.set('+move:' + move.id, '');
++					}
++				}
++			}
++		},
++		checkCanLearn(move, species, setSources, set) {
++			const problem = this.checkCanLearn(move, species, setSources, set);
++			if (!problem) return null;
++			const baseId = this.toID(species.baseSpecies || species.name);
++			const subLegends = new Set([
++				'articuno', 'zapdos', 'moltres', 'raikou', 'entei', 'suicune',
++				'regirock', 'regice', 'registeel', 'latias', 'latios',
++				'uxie', 'mesprit', 'azelf', 'heatran', 'regigigas', 'cresselia',
++				'cobalion', 'terrakion', 'virizion', 'tornadus', 'thundurus', 'landorus',
++				'silvally', 'tapukoko', 'tapulele', 'tapubulu', 'tapufini',
++				'urshifu', 'regieleki', 'regidrago', 'glastrier', 'spectrier', 'enamorus',
++				'wochien', 'chienpao', 'tinglu', 'chiyu', 'okidogi', 'munkidori', 'fezandipiti', 'ogerpon',
++			]);
++			if (!subLegends.has(baseId) && !subLegends.has(species.id)) return problem;
++			for (const d of [this.dex, this.dex.forGen(9), this.dex.forGen(8)]) {
++				for (const sid of [species.id, baseId, this.toID(species.changesFrom), this.toID(species.prevo)]) {
++					if (!sid) continue;
++					const lset = d.species.getLearnsetData(sid)?.learnset;
++					if (lset && lset[move.id]) return null;
++				}
++			}
++			return problem;
++		},
++	},
++	vgchess: {
++		effectType: 'Rule',
++		name: 'VGChess',
++		desc: "Assign 4 Chess Roles (♔ King, ♕ Queen, ♖ Rook / ♗ Bishop / ♘ Knight, and ♙ Pawn) to your 4 chosen Pokémon at Team Preview. Knocking out the enemy ♔ King immediately wins the battle (Checkmate). Includes positional Rook/Bishop multipliers, Knight Protect-bypass & Fork splash, Pawn Opening Advance, En Passant, Pawn Promotion, and once-per-battle Castling",
++		onValidateSet(set) {
++			const problems: string[] = [];
++			const bannedAbilities = new Set(['shadowtag', 'arenatrap']);
++			const abilId = this.toID(set.ability);
++			if (bannedAbilities.has(abilId)) {
++				problems.push(`${set.name || set.species}'s ability ${set.ability} is banned in VGChess (inescapable trapping is not allowed).`);
++			}
++			const item = this.dex.items.get(set.item);
++			if (item.id === 'gengarite') {
++				problems.push(`Gengarite is banned in VGChess because Mega Gengar gains Shadow Tag.`);
++			}
++			const bannedMoves = new Set([
++				'perishsong', 'destinybond', 'finalgambit', 'revivalblessing', 'batonpass', 'shedtail',
++				'fissure', 'sheercold', 'guillotine', 'horndrill',
++			]);
++			for (const moveName of set.moves || []) {
++				const move = this.dex.moves.get(moveName);
++				if (bannedMoves.has(move.id)) {
++					problems.push(`${move.name} is banned in VGChess to prevent instant-KO / countdown cheese against the King.`);
++				}
++			}
++			return problems.length ? problems : null;
++		},
++		onBegin() {
++			this.add('rule', 'VGChess: Each player fields 4 Chess Pieces (♔ King, ♕ Queen, ♖ Rook / ♗ Bishop / ♘ Knight, ♙ Pawn). Knocking out the opposing ♔ King immediately wins by Checkmate!');
++		},
++		onSwitchIn(pokemon) {
++			if (!(this as any).vgchessBoardRevealed) {
++				(this as any).vgchessBoardRevealed = true;
++				const roleBadge = (r: string) => {
++					switch (r) {
++					case 'king': return '♔ King';
++					case 'queen': return '♕ Queen';
++					case 'rook': return '♖ Rook';
++					case 'bishop': return '♗ Bishop';
++					case 'knight': return '♘ Knight';
++					case 'pawn': return '♙ Pawn';
++					default: return r;
++					}
++				};
++				const sideLines = this.sides.map(s => {
++					const pieces = s.pokemon.slice(0, 4).map(m => `${roleBadge((m as any).chessRole || 'pawn')}: <strong>${m.name}</strong>`).join(' &bull; ');
++					return `&bull; <strong>${s.name}:</strong> ${pieces}`;
++				}).join('<br />');
++				this.add('html', `<div class="broadcast-blue"><strong>♟️ VGChess Board Revealed!</strong><br />${sideLines}</div>`);
++			}
++			const role: string = (pokemon as any).chessRole || '';
++			if (role === 'king') {
++				this.add('-message', `♔ ${pokemon.side.name}'s ${pokemon.name} takes the field as the KING (Royal Presence: ally deals 1.2x damage & takes 0.85x damage; protect your King at all costs)!`);
++			} else if (role === 'queen') {
++				this.add('-message', `♕ ${pokemon.side.name}'s ${pokemon.name} takes the field as the QUEEN (Sovereign Might: 1.15x damage & ignores redirection)!`);
++			} else if (role === 'rook') {
++				if (!(pokemon.m as any).rookWallUsed) {
++					(pokemon.m as any).rookWallUsed = true;
++					this.add('-message', `♖ ${pokemon.side.name}'s ${pokemon.name} takes the field as the ROOK and raises its Castle Wall (+1 Def, +1 SpD once per battle; 1.3x straight-file damage)!`);
++					const boosted = this.boost({ def: 1, spd: 1 }, pokemon, pokemon);
++					if (boosted) (pokemon.m as any).rookWallActive = true;
++				} else {
++					this.add('-message', `♖ ${pokemon.side.name}'s ${pokemon.name} takes the field as the ROOK (Open File: 1.3x straight-file damage; immune to forced switches)!`);
++				}
++				if ((pokemon.side as any).pendingCastleRook === pokemon) {
++					delete (pokemon.side as any).pendingCastleRook;
++					(pokemon.m as any).castledTurn = this.turn;
++					this.add('-message', `Castling Rampart: ♖ ${pokemon.name} takes 0.5x damage for the rest of this turn!`);
++				}
++			} else if (role === 'bishop') {
++				this.add('-message', `♗ ${pokemon.side.name}'s ${pokemon.name} takes the field as the BISHOP (Long Diagonal: 1.3x diagonal damage & -1 Spe Pin)!`);
++			} else if (role === 'knight') {
++				(pokemon.m as any).knightJumpTurn = this.turn;
++				this.add('-message', `♘ ${pokemon.side.name}'s ${pokemon.name} leaps onto the board as the KNIGHT (L-Jump Feint bypasses Protect this turn & single-target hits Fork 1/8 HP to the adjacent foe)!`);
++			} else if (role === 'pawn') {
++				if (!(pokemon.m as any).pawnAdvanceUsed) {
++					(pokemon.m as any).pawnAdvanceUsed = true;
++					(pokemon.m as any).pawnAdvanceTurn = this.turn;
++					this.add('-message', `♙ ${pokemon.side.name}'s ${pokemon.name} advances as the PAWN (+1 Priority this turn, En Passant on foe switches, & Promotes to ♕ Queen on KO or after 2 turns)!`);
++				} else {
++					this.add('-message', `♙ ${pokemon.side.name}'s ${pokemon.name} takes the field as the PAWN (En Passant on foe switches & Promotes to ♕ Queen on KO or after 2 turns)!`);
++				}
++			}
++		},
++		onSwitchOut(pokemon) {
++			if ((pokemon.m as any).rookWallActive) {
++				if (pokemon.boosts.def > 0) pokemon.boosts.def--;
++				if (pokemon.boosts.spd > 0) pokemon.boosts.spd--;
++				delete (pokemon.m as any).rookWallActive;
++			}
++			if ((pokemon as any).chessRole === 'king' && !(pokemon.side as any).castlingUsed && pokemon.hp > 0 && !pokemon.fainted) {
++				for (const action of this.queue.list) {
++					if ((action.choice === 'switch' || action.choice === 'instaswitch') &&
++						action.pokemon === pokemon && (action.target as any)?.chessRole === 'rook') {
++						(pokemon.side as any).castlingUsed = true;
++						(pokemon.side as any).pendingCastleRook = action.target;
++						this.heal(Math.max(1, Math.floor(pokemon.baseMaxhp / 4)), pokemon, pokemon);
++						this.add('-message', `Castling! ♔ ${pokemon.name} castles with ♖ ${action.target.name}, healing 25% HP as the Rook fortifies the lane!`);
++						break;
++					}
++				}
++			}
++			if (pokemon.hp > 0 && !pokemon.fainted) {
++				for (const foe of pokemon.side.foes()) {
++					if (foe && !foe.fainted && (foe as any).chessRole === 'pawn' && pokemon.hp > 0) {
++						const epDmg = Math.max(1, Math.floor(pokemon.baseMaxhp / 6));
++						this.add('-message', `En Passant! ♙ ${foe.name} strikes ${pokemon.name} in passing as it retreats!`);
++						this.damage(epDmg, pokemon, foe);
++					}
++				}
++			}
++		},
++		onDragOut(pokemon) {
++			if ((pokemon as any).chessRole === 'rook') {
++				this.add('-message', `Castle Wall: ♖ ${pokemon.name} stands firm and cannot be forced out!`);
++				return null;
++			}
++		},
++		onTryBoost(boost, target, source, effect) {
++			if ((target as any).chessRole === 'knight' && effect?.id === 'intimidate' && boost.atk && boost.atk < 0) {
++				delete boost.atk;
++				this.add('-message', `L-Jump: ♘ ${target.name} leaps over Intimidate!`);
++			}
++		},
++		onDamage(damage, target, source, effect) {
++			if ((target as any).chessRole === 'knight' && effect && ['stealthrock', 'spikes', 'gmaxsteelsurge'].includes(effect.id)) {
++				return false;
++			}
++		},
++		onModifyPriority(priority, pokemon, target, move) {
++			if ((pokemon as any).chessRole === 'pawn' && (pokemon.m as any).pawnAdvanceTurn === this.turn && pokemon.activeTurns <= 1) {
++				return priority + 1;
++			}
++		},
++		onBeforeMovePriority: 8,
++		onBeforeMove(pokemon, target, move) {
++			if ((pokemon as any).chessRole === 'king' &&
++				(move.selfdestruct || ['finalgambit', 'memento', 'healingwish', 'lunardance', 'explosion', 'selfdestruct', 'mistyexplosion'].includes(move.id))) {
++				this.add('-message', `Royal Decree: ♔ ${pokemon.name} cannot sacrifice itself!`);
++				return false;
++			}
++		},
++		onModifyMove(move, pokemon, target) {
++			if ((pokemon as any).chessRole === 'queen') {
++				move.tracksTarget = true;
++			}
++			if ((pokemon as any).chessRole === 'knight' &&
++				((pokemon.m as any).knightJumpTurn === this.turn || pokemon.activeTurns <= 1) &&
++				move.category !== 'Status') {
++				if (move.flags) delete move.flags['protect'];
++			}
++		},
++		onBasePowerPriority: 22,
++		onBasePower(basePower, attacker, defender, move) {
++			const ally = attacker.adjacentAllies()[0];
++			if (ally && !ally.fainted && (ally as any).chessRole === 'king') {
++				this.chainModify(1.2);
++			}
++			const role = (attacker as any).chessRole;
++			if (role === 'queen') {
++				this.chainModify(1.15);
++			} else if (role === 'rook' && defender && !attacker.isAlly(defender) && !move.spreadHit) {
++				// In Showdown Doubles, position 0 faces foe position 1 directly across (straight file); 0 vs 0 is diagonal
++				if (attacker.position !== defender.position) {
++					this.chainModify(1.3);
++				} else {
++					this.chainModify(0.8);
++				}
++			} else if (role === 'bishop' && defender && !attacker.isAlly(defender) && !move.spreadHit) {
++				if (attacker.position === defender.position) {
++					this.chainModify(1.3);
++				} else {
++					this.chainModify(0.8);
++				}
++			}
++		},
++		onSourceModifyDamage(damage, source, target, move) {
++			const ally = target.adjacentAllies()[0];
++			if (ally && !ally.fainted && (ally as any).chessRole === 'king') {
++				this.chainModify(0.85);
++			}
++			if ((target as any).chessRole === 'king' && (!ally || ally.fainted)) {
++				this.chainModify(1.2);
++			}
++			if ((target as any).chessRole === 'rook' && (target.m as any).castledTurn === this.turn) {
++				this.chainModify(0.5);
++			}
++		},
++		onDamagingHit(damage, target, source, move) {
++			if (!source || source === target || source.isAlly(target) || !move || move.category === 'Status') return;
++			const role = (source as any).chessRole;
++			if (role === 'bishop' && !move.spreadHit && source.position === target.position && target.hp > 0 && !(move as any).__vgchessPinDone) {
++				(move as any).__vgchessPinDone = true;
++				this.add('-message', `Pinning Gaze! ♗ ${source.name} pins ${target.name} along the diagonal (-1 Spe)!`);
++				this.boost({ spe: -1 }, target, source);
++			}
++			if (role === 'knight' && !move.spreadHit && !(move as any).__vgchessForkDone) {
++				(move as any).__vgchessForkDone = true;
++				const otherFoe = target.adjacentAllies()[0];
++				if (otherFoe && !otherFoe.fainted && otherFoe.hp > 0) {
++					const forkDmg = Math.max(1, Math.floor(otherFoe.baseMaxhp / 8));
++					this.add('-message', `Royal Fork! ♘ ${source.name}'s attack forks onto ${otherFoe.name}!`);
++					this.damage(forkDmg, otherFoe, source);
++				}
++			}
++			if (role === 'pawn' && target.hp <= 0 && !source.fainted && source.hp > 0) {
++				(source as any).chessRole = 'queen';
++				(source.m as any).promotedPawn = true;
++				if (source.status) source.cureStatus();
++				this.add('html', `<div class="broadcast-green"><strong>♟️➡️♕ PAWN PROMOTION!</strong> <strong>${source.side.name}'s ${source.name}</strong> captured ${target.name} and promoted into a <strong>♕ QUEEN</strong> (+1 Atk, +1 SpA, +1 Spe, status cured, &amp; Sovereign Might unlocked)!</div>`);
++				this.boost({ atk: 1, spa: 1, spe: 1 }, source, source);
++			}
++		},
++		onResidualOrder: 29,
++		onResidual(pokemon) {
++			if ((pokemon as any).chessRole === 'pawn' && !pokemon.fainted && pokemon.hp > 0 && pokemon.activeTurns >= 2) {
++				(pokemon as any).chessRole = 'queen';
++				(pokemon.m as any).promotedPawn = true;
++				if (pokemon.status) pokemon.cureStatus();
++				this.add('html', `<div class="broadcast-green"><strong>♟️➡️♕ PAWN PROMOTION!</strong> <strong>${pokemon.side.name}'s ${pokemon.name}</strong> reached the end of its 2nd turn on the board and promoted into a <strong>♕ QUEEN</strong> (+1 Atk, +1 SpA, +1 Spe, status cured, &amp; Sovereign Might unlocked)!</div>`);
++				this.boost({ atk: 1, spa: 1, spe: 1 }, pokemon, pokemon);
++			}
++		},
++		onFaint(pokemon) {
++			if ((pokemon as any).chessRole === 'king' && !this.ended) {
++				const winnerSide = pokemon.side.foe;
++				this.add('html', `<div class="broadcast-red"><strong>♔ CHECKMATE!</strong> <strong>${pokemon.side.name}'s King (${pokemon.name})</strong> has been captured! <strong>${winnerSide.name}</strong> wins the battle by Regicide!</div>`);
++				this.win(winnerSide);
++				return;
++			}
++			if ((pokemon as any).chessRole === 'queen' && !(pokemon.m as any).promotedPawn && !this.ended) {
++				const ally = pokemon.side.active.find(a => a && a !== pokemon && !a.fainted);
++				if (ally) {
++					this.add('-message', `Queen Blunder! Losing ♕ ${pokemon.name} shakes ${ally.name}'s morale (-1 Atk, -1 SpA)!`);
++					this.boost({ atk: -1, spa: -1 }, ally, pokemon);
++				}
++			}
++		},
++	},
++	rbyvgc: {
++		effectType: 'Rule',
++		name: 'RBY VGC',
++		desc: "Standard VGC rules for Generation 1 (RBY) 2v2 Doubles with vanilla RBY mechanics: Closed Team Sheets, Bring 6 Pick 4, Level 50, Species Clause, VGC Timer, no Restricted or Mythical Pokémon (Mewtwo and Mew banned)",
++		ruleset: [
++			'Obtainable', 'Team Preview', 'Species Clause', 'Nickname Clause',
++			'Cancel Mod', 'Desync Clause Mod', 'HP Percentage Mod', 'Endless Battle Clause',
++			'Adjust Level = 50', 'Picked Team Size = 4', 'Max Team Size = 6', 'Min Team Size = 4',
++			'VGC Timer', '-Restricted Legendary', '-Mythical', '-Mewtwo', '-Mew',
++		],
++		onBegin() {
++			this.add('rule', 'RBY VGC: Bring 6 Pick 4 Doubles at Level 50 with vanilla RBY mechanics (Mewtwo & Mew banned).');
++		},
++	},
++	gscvgc: {
++		effectType: 'Rule',
++		name: 'GSC VGC',
++		desc: "Standard VGC rules for Generation 2 (GSC) 2v2 Doubles with vanilla GSC mechanics: Closed Team Sheets, Bring 6 Pick 4, Level 50, Species Clause, Item Clause = 1, VGC Timer, no Restricted or Mythical Pokémon (Mewtwo, Mew, Lugia, Ho-Oh, and Celebi banned)",
++		ruleset: [
++			'Obtainable', 'Team Preview', 'Species Clause', 'Nickname Clause', 'Item Clause = 1',
++			'Cancel Mod', 'HP Percentage Mod', 'Endless Battle Clause',
++			'Adjust Level = 50', 'Picked Team Size = 4', 'Max Team Size = 6', 'Min Team Size = 4',
++			'VGC Timer', '-Restricted Legendary', '-Mythical', '-Mewtwo', '-Mew', '-Lugia', '-Ho-Oh', '-Celebi',
++		],
++		onBegin() {
++			this.add('rule', 'GSC VGC: Bring 6 Pick 4 Doubles at Level 50 with vanilla GSC mechanics and Item Clause (Mewtwo, Mew, Lugia, Ho-Oh, and Celebi banned).');
++		},
++	},
++	archessengine: {
++		effectType: 'Rule',
++		name: 'ARChess Engine',
++		desc: "8x8 Pokémon Chess where capture attempts launch live 1v1 Showdown Singles duels (Slot 1=King, 2=Queen, 3=Rook, 4=Bishop, 5=Knight, 6=Pawn)",
++		onValidateTeam(team) {
++			if (team.length < 6) {
++				return [
++					"ARChess requires a full 6-Pokémon team mapped to Chess Roles: " +
++					"Slot 1 = King, Slot 2 = Queen, Slot 3 = Rook, Slot 4 = Bishop, Slot 5 = Knight, Slot 6 = Pawn.",
++				];
++			}
++		},
++		onBegin() {
++			this.add('rule', 'ARChess Engine: 8x8 Board Phase + 1v1 Showdown Capture Duels (Slot 1=King, 2=Queen, 3=Rook, 4=Bishop, 5=Knight, 6=Pawn).');
++			const b = this as any;
++			const esc = (s: any) => String(s ?? '')
++				.replace(/&/g, '&amp;')
++				.replace(/</g, '&lt;')
++				.replace(/>/g, '&gt;')
++				.replace(/"/g, '&quot;');
++
++			for (const side of this.sides) {
++				side.pokemon.forEach((poke: any, idx: number) => {
++					poke.archessSlotIdx = idx;
++					poke.archessOrigItem = poke.item;
++				});
++			}
++
++			const ROLE_META: { [k: string]: { name: string; iconW: string; iconB: string; slotIdx: number } } = {
++				K: { name: 'King', iconW: '♔', iconB: '♚', slotIdx: 0 },
++				Q: { name: 'Queen', iconW: '♕', iconB: '♛', slotIdx: 1 },
++				R: { name: 'Rook', iconW: '♖', iconB: '♜', slotIdx: 2 },
++				B: { name: 'Bishop', iconW: '♗', iconB: '♝', slotIdx: 3 },
++				N: { name: 'Knight', iconW: '♘', iconB: '♞', slotIdx: 4 },
++				P: { name: 'Pawn', iconW: '♙', iconB: '♟', slotIdx: 5 },
++			};
++
++			const STATUS_COLORS: { [k: string]: string } = {
++				brn: '#e67e22',
++				par: '#d4ac0d',
++				slp: '#7f8c8d',
++				psn: '#8e44ad',
++				tox: '#6c3483',
++				frz: '#2980b9',
++			};
++
++			b.archessGetPokeBySlot = (sideId: 'p1' | 'p2', slotIdx: number) => {
++				const side = sideId === 'p1' ? this.p1 : this.p2;
++				return side.pokemon.find((m: any) => m.archessSlotIdx === slotIdx) || side.pokemon[slotIdx] || side.pokemon[0];
++			};
++
++			const createPieceFromSlot = (sideId: 'p1' | 'p2', role: string, r: number, c: number) => {
++				const slotIdx = ROLE_META[role].slotIdx;
++				const templatePoke = b.archessGetPokeBySlot(sideId, slotIdx);
++				return {
++					uid: `${sideId}_${role}_${r}_${c}`,
++					sideId,
++					role,
++					slotIdx,
++					speciesId: templatePoke.species.id,
++					speciesName: templatePoke.species.name,
++					hp: templatePoke.maxhp,
++					maxHp: templatePoke.maxhp,
++					status: '' as any,
++					item: templatePoke.item,
++					ability: templatePoke.ability,
++					movePP: templatePoke.moveSlots.map((ms: any) => ms.pp),
++					hasMoved: false,
++					promoted: false,
++				};
++			};
++
++			const board: any[][] = Array.from({ length: 8 }, () => Array(8).fill(null));
++			const backOrder = ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'];
++
++			for (let c = 0; c < 8; c++) {
++				board[0][c] = createPieceFromSlot('p2', backOrder[c], 0, c);
++				board[1][c] = createPieceFromSlot('p2', 'P', 1, c);
++				board[6][c] = createPieceFromSlot('p1', 'P', 6, c);
++				board[7][c] = createPieceFromSlot('p1', backOrder[c], 7, c);
++			}
++
++			b.archess = {
++				phase: 'BOARD' as 'BOARD' | 'DUEL',
++				turn: 'p1' as 'p1' | 'p2',
++				board,
++				boardRenderedOnce: false,
++				publicStatusText: 'Click one of your pieces on the 8x8 board, then click a highlighted square to move. A 1v1 battle only starts when a capture occurs!',
++				privateHint: { p1: '', p2: '' },
++				selected: { p1: null as { r: number; c: number } | null, p2: null as { r: number; c: number } | null },
++				validMoves: { p1: [] as any[], p2: [] as any[] },
++				galeforceSq: null as { r: number; c: number; sideId: 'p1' | 'p2' } | null,
++				lastMove: null as { fromR: number; fromC: number; toR: number; toC: number } | null,
++				activeDuel: null as {
++					attackerSide: 'p1' | 'p2';
++					defenderSide: 'p1' | 'p2';
++					fromR: number;
++					fromC: number;
++					toR: number;
++					toC: number;
++					atkPiece: any;
++					defPiece: any;
++					lastHitWasSEOrCrit: boolean;
++				} | null,
++			};
++
++			const sqToAlg = (r: number, c: number) => `${String.fromCharCode(97 + c)}${8 - r}`;
++
++			b.archessWithdrawStageSprites = () => {
++				for (const s of this.sides) {
++					for (const p of s.pokemon) {
++						p.volatiles = {};
++						p.clearBoosts();
++					}
++					if (s.active[0]) {
++						this.add('faint', s.active[0]);
++					}
++				}
++				for (const s of this.sides) {
++					s.pokemonLeft = s.pokemon.length;
++					s.faintedLastTurn = null;
++					s.faintedThisTurn = null;
++					for (const p of s.pokemon) {
++						p.fainted = false;
++						p.subFainted = null;
++						p.switchFlag = false;
++						if (p.hp <= 0) p.hp = p.maxhp;
++					}
++				}
++			};
++
++			b.archessSyncPieceToPoke = (piece: any) => {
++				const poke = b.archessGetPokeBySlot(piece.sideId, piece.slotIdx);
++				if (piece.promoted && piece.speciesId !== poke.species.id) {
++					poke.formeChange(piece.speciesId, this.effect, true);
++				}
++				poke.fainted = false;
++				poke.subFainted = null;
++				poke.switchFlag = false;
++				poke.maxhp = piece.maxHp;
++				poke.baseMaxhp = piece.maxHp;
++				poke.hp = Math.max(1, Math.min(piece.maxHp, piece.hp));
++				poke.status = piece.status || '';
++				poke.item = piece.item || '';
++				poke.clearBoosts();
++				poke.volatiles = {};
++				poke.moveSlots.forEach((ms: any, idx: number) => {
++					if (piece.movePP[idx] !== undefined) ms.pp = piece.movePP[idx];
++				});
++				return poke;
++			};
++
++			b.archessSyncPokeToPiece = (poke: any, piece: any) => {
++				if (piece.hp > 0) {
++					piece.hp = Math.max(0, poke.hp);
++				}
++				piece.maxHp = poke.maxhp;
++				piece.status = piece.hp > 0 ? poke.status : '';
++				piece.item = poke.item;
++				piece.movePP = poke.moveSlots.map((ms: any) => ms.pp);
++			};
++
++			const origSwitchIn = this.actions.switchIn.bind(this.actions);
++			this.actions.switchIn = (pokemon: any, pos: number, sourceEffect: any = null, isDrag?: boolean) => {
++				if (b.archess && b.archess.phase === 'BOARD') {
++					const side = pokemon.side;
++					side.active[pos] = pokemon;
++					pokemon.isActive = true;
++					pokemon.position = pos;
++					return true;
++				}
++				return origSwitchIn(pokemon, pos, sourceEffect, isDrag);
++			};
++
++			b.archessPlaceInActiveSlot = (poke: any) => {
++				const side = poke.side;
++				for (const m of side.pokemon) {
++					m.isActive = false;
++					m.volatiles = {};
++					m.clearBoosts();
++				}
++				const curZero = side.pokemon[0];
++				const pokeIdx = side.pokemon.indexOf(poke);
++				if (pokeIdx > 0 && curZero) {
++					side.pokemon[0] = poke;
++					side.pokemon[pokeIdx] = curZero;
++					poke.position = 0;
++					curZero.position = pokeIdx;
++				}
++				side.active[0] = poke;
++				poke.isActive = true;
++				poke.fainted = false;
++				poke.subFainted = null;
++				poke.switchFlag = false;
++				poke.activeTurns = 0;
++				poke.activeMoveActions = 0;
++				poke.newlySwitched = true;
++				poke.previouslySwitchedIn++;
++			};
++
++			b.archessStartDuelOnStage = (atkPoke: any, defPoke: any) => {
++				b.archessPlaceInActiveSlot(atkPoke);
++				b.archessPlaceInActiveSlot(defPoke);
++				this.add('switch', atkPoke, atkPoke.getFullDetails);
++				this.add('switch', defPoke, defPoke.getFullDetails);
++				for (const mon of [atkPoke, defPoke]) {
++					this.singleEvent('Start', mon.getAbility(), mon.abilityState, mon);
++					this.singleEvent('Start', mon.getItem(), mon.itemState, mon);
++				}
++			};
++
++			b.archessGetMoves = (r: number, c: number) => {
++				const piece = b.archess.board[r][c];
++				if (!piece) return [];
++				const moves: { r: number; c: number; isCapture: boolean; isCastle?: string }[] = [];
++				const sideId = piece.sideId;
++				const inBounds = (nr: number, nc: number) => nr >= 0 && nr < 8 && nc >= 0 && nc < 8;
++
++				const addTarget = (nr: number, nc: number) => {
++					if (!inBounds(nr, nc)) return false;
++					const occ = b.archess.board[nr][nc];
++					if (!occ) {
++						moves.push({ r: nr, c: nc, isCapture: false });
++						return true;
++					}
++					if (occ.sideId !== sideId) {
++						moves.push({ r: nr, c: nc, isCapture: true });
++					}
++					return false;
++				};
++
++				const slide = (dirs: number[][]) => {
++					for (const [dr, dc] of dirs) {
++						let nr = r + dr;
++						let nc = c + dc;
++						while (inBounds(nr, nc)) {
++							if (!addTarget(nr, nc)) break;
++							nr += dr;
++							nc += dc;
++						}
++					}
++				};
++
++				if (piece.role === 'P') {
++					const dir = sideId === 'p1' ? -1 : 1;
++					const startRank = sideId === 'p1' ? 6 : 1;
++					if (inBounds(r + dir, c) && !b.archess.board[r + dir][c]) {
++						moves.push({ r: r + dir, c, isCapture: false });
++						if (r === startRank && inBounds(r + 2 * dir, c) && !b.archess.board[r + 2 * dir][c]) {
++							moves.push({ r: r + 2 * dir, c, isCapture: false });
++						}
++					}
++					for (const dc of [-1, 1]) {
++						const nr = r + dir;
++						const nc = c + dc;
++						if (inBounds(nr, nc) && b.archess.board[nr][nc] && b.archess.board[nr][nc].sideId !== sideId) {
++							moves.push({ r: nr, c: nc, isCapture: true });
++						}
++					}
++				} else if (piece.role === 'N') {
++					for (const [dr, dc] of [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]]) {
++						addTarget(r + dr, c + dc);
++					}
++				} else if (piece.role === 'B') {
++					slide([[-1, -1], [-1, 1], [1, -1], [1, 1]]);
++				} else if (piece.role === 'R') {
++					slide([[-1, 0], [1, 0], [0, -1], [0, 1]]);
++				} else if (piece.role === 'Q') {
++					slide([[-1, -1], [-1, 1], [1, -1], [1, 1], [-1, 0], [1, 0], [0, -1], [0, 1]]);
++				} else if (piece.role === 'K') {
++					for (const [dr, dc] of [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]]) {
++						addTarget(r + dr, c + dc);
++					}
++					if (!piece.hasMoved && !b.archess.galeforceSq) {
++						const homeR = sideId === 'p1' ? 7 : 0;
++						if (r === homeR && c === 4) {
++							const ksR = b.archess.board[homeR][7];
++							if (ksR && ksR.role === 'R' && !ksR.hasMoved && !b.archess.board[homeR][5] && !b.archess.board[homeR][6]) {
++								moves.push({ r: homeR, c: 6, isCapture: false, isCastle: 'ks' });
++							}
++							const qsR = b.archess.board[homeR][0];
++							if (qsR && qsR.role === 'R' && !qsR.hasMoved && !b.archess.board[homeR][1] && !b.archess.board[homeR][2] && !b.archess.board[homeR][3]) {
++								moves.push({ r: homeR, c: 2, isCapture: false, isCastle: 'qs' });
++							}
++						}
++					}
++				}
++				return moves;
++			};
++
++			b.archessBuildBoardHtml = (viewer: 'p1' | 'p2' | 'spec') => {
++				const st = b.archess;
++				const turnSide = st.turn === 'p1' ? this.p1 : this.p2;
++				const isPlayer = viewer === 'p1' || viewer === 'p2';
++				const sel = isPlayer ? st.selected[viewer] : null;
++				const vMoves = isPlayer ? (st.validMoves[viewer] || []) : [];
++				const flipBoard = viewer === 'p2';
++				const statusMsg = isPlayer ? (st.privateHint[viewer] || st.publicStatusText) : st.publicStatusText;
++
++				let html = `<div class="infobox" style="padding:8px 10px;margin:4px 0;border-radius:6px;">`;
++				html += `<table style="width:100%;border-collapse:collapse;margin-bottom:6px;"><tr>`;
++				if (st.phase === 'BOARD') {
++					const isWhiteTurn = st.turn === 'p1';
++					const pillBg = isWhiteTurn ? '#f8fafc' : '#1e293b';
++					const pillFg = isWhiteTurn ? '#0f172a' : '#f8fafc';
++					const pillBorder = isWhiteTurn ? '#94a3b8' : '#475569';
++					html += `<td style="padding:2px 0;text-align:left;vertical-align:middle;">`;
++					html += `<span style="display:inline-block;background:${pillBg};color:${pillFg};border:1px solid ${pillBorder};padding:2px 7px;border-radius:4px;font-weight:bold;font-size:11px;">${isWhiteTurn ? '♔ White' : '♚ Black'}</span> `;
++					html += `<strong style="font-size:12px;">${esc(turnSide.name)}'s Turn</strong>`;
++					if (st.galeforceSq) {
++						html += ` <span style="display:inline-block;background:#eab308;color:#111827;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:10px;margin-left:4px;">⚡ SE/CRIT BONUS MOVE</span>`;
++					}
++					html += `</td><td style="padding:2px 0;text-align:right;vertical-align:middle;">`;
++					if (st.galeforceSq && viewer === st.turn) {
++						html += `<button class="button" name="send" value="/archess skip" style="font-weight:bold;font-size:11px;padding:3px 8px;">Skip Bonus Move</button>`;
++					}
++					html += `</td>`;
++				} else if (st.activeDuel) {
++					const d = st.activeDuel;
++					html += `<td style="padding:2px 0;text-align:left;vertical-align:middle;">`;
++					html += `<span style="display:inline-block;background:#b91c1c;color:#ffffff;padding:2px 7px;border-radius:4px;font-weight:bold;font-size:11px;">⚔️ 1v1 DUEL @ ${sqToAlg(d.toR, d.toC)}</span> `;
++					html += `<strong style="font-size:12px;">${esc(d.atkPiece.speciesName)} vs ${esc(d.defPiece.speciesName)}</strong>`;
++					html += `</td><td style="padding:2px 0;text-align:right;vertical-align:middle;">`;
++					if (viewer === d.attackerSide) {
++						html += `<button class="button" name="send" value="/archess retreat" style="font-size:11px;padding:3px 8px;">↩ Tactical Retreat</button>`;
++					}
++					html += `</td>`;
++				}
++				html += `</tr></table>`;
++
++				if (statusMsg) {
++					html += `<div style="margin-bottom:6px;padding:4px 8px;background:rgba(128,128,128,0.12);border-left:3px solid #6b8196;border-radius:3px;font-size:11px;text-align:center;">${esc(statusMsg)}</div>`;
++				}
++
++				html += `<table style="width:100%;max-width:496px;margin:0 auto;border-collapse:collapse;border:2px solid #526375;table-layout:fixed;box-shadow:0 2px 6px rgba(0,0,0,0.22);">`;
++				const rowIndices = flipBoard ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
++				const colIndices = flipBoard ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
++
++				for (let ri = 0; ri < 8; ri++) {
++					const r = rowIndices[ri];
++					html += `<tr>`;
++					for (let ci = 0; ci < 8; ci++) {
++						const c = colIndices[ci];
++						const isLight = (r + c) % 2 === 0;
++						const p = st.board[r][c];
++						const isSel = sel && sel.r === r && sel.c === c;
++						const moveTarget = vMoves.find((m: any) => m.r === r && m.c === c);
++						const isLast = st.lastMove &&
++							((st.lastMove.fromR === r && st.lastMove.fromC === c) ||
++							 (st.lastMove.toR === r && st.lastMove.toC === c));
++
++						let bg = isLight ? '#e6ebf0' : '#6b8196';
++						let border = '1px solid rgba(30,41,59,0.3)';
++						if (isLast) bg = isLight ? '#f6e58d' : '#a8963e';
++						if (isSel) {
++							bg = '#3b82f6';
++							border = '2px solid #93c5fd';
++						} else if (moveTarget && moveTarget.isCapture) {
++							bg = isLight ? '#fca5a5' : '#991b1b';
++							border = '2px solid #ef4444';
++						} else if (moveTarget && !moveTarget.isCapture) {
++							bg = isLight ? '#bbf7d0' : '#2e7d4f';
++							border = '2px solid #22c55e';
++						}
++
++						const alg = sqToAlg(r, c);
++						const showEdgeCoord = (ri === 7 || ci === 0);
++						html += `<td style="background:${bg};border:${border};width:12.5%;height:56px;padding:0;margin:0;text-align:center;vertical-align:middle;">`;
++						if (isPlayer) {
++							html += `<button name="send" value="/archess click ${r},${c}" title="${alg}" style="display:block;width:100%;height:54px;background:transparent;border:none;cursor:pointer;padding:2px 0;margin:0;text-align:center;box-sizing:border-box;">`;
++						} else {
++							html += `<div title="${alg}" style="display:block;width:100%;height:54px;padding:2px 0;margin:0;text-align:center;box-sizing:border-box;">`;
++						}
++
++						if (p) {
++							const roleIcon = p.sideId === 'p1' ? ROLE_META[p.role].iconW : ROLE_META[p.role].iconB;
++							const isP1Piece = p.sideId === 'p1';
++							const badgeBg = isP1Piece ? '#f8fafc' : '#1e293b';
++							const badgeFg = isP1Piece ? '#0f172a' : '#f8fafc';
++							const badgeBd = isP1Piece ? '#64748b' : '#0f172a';
++							const hpPct = Math.max(0, Math.min(100, Math.round((p.hp / p.maxHp) * 100)));
++							const hpColor = hpPct > 50 ? '#22c55e' : hpPct > 20 ? '#eab308' : '#ef4444';
++							const stBg = p.status ? (STATUS_COLORS[p.status] || '#64748b') : '';
++
++							html += `<div style="display:block;width:86%;margin:0 auto 1px auto;font-size:9px;font-weight:bold;line-height:12px;color:${badgeFg};background:${badgeBg};border:1px solid ${badgeBd};border-radius:3px;text-align:center;overflow:hidden;white-space:nowrap;">${roleIcon} ${p.role}`;
++							if (p.status) {
++								html += ` <span style="background:${stBg};color:#fff;padding:0 2px;border-radius:2px;">${p.status.toUpperCase()}</span>`;
++							}
++							html += `</div>`;
++							html += `<div style="display:block;width:100%;height:30px;line-height:30px;text-align:center;margin:0 auto;overflow:visible;"><psicon pokemon="${p.speciesId}" style="display:inline-block;width:40px;height:30px;vertical-align:middle;" /></div>`;
++							html += `<div style="display:block;width:82%;height:4px;margin:1px auto 0 auto;background:#1e293b;border-radius:2px;overflow:hidden;border:1px solid rgba(0,0,0,0.45);"><div style="display:block;width:${hpPct}%;height:4px;background:${hpColor};"></div></div>`;
++						} else if (moveTarget) {
++							html += `<div style="display:block;width:100%;height:50px;line-height:50px;text-align:center;"><span style="display:inline-block;width:13px;height:13px;border-radius:7px;background:#16a34a;border:2px solid #ffffff;vertical-align:middle;"></span></div>`;
++						} else {
++							const coordColor = isLight ? '#475569' : '#e2e8f0';
++							const coordOpacity = showEdgeCoord ? '0.8' : '0.35';
++							html += `<div style="display:block;width:100%;height:50px;line-height:50px;text-align:center;font-size:9px;font-weight:${showEdgeCoord ? 'bold' : 'normal'};opacity:${coordOpacity};color:${coordColor};">${alg}</div>`;
++						}
++
++						html += isPlayer ? `</button></td>` : `</div></td>`;
++					}
++					html += `</tr>`;
++				}
++				html += `</table>`;
++				html += `<div style="margin-top:5px;font-size:11px;opacity:0.85;text-align:center;">♔ ${esc(this.p1.name)} (White) vs ♚ ${esc(this.p2.name)} (Black) &bull; Capture attempts launch a 1v1 Showdown duel</div>`;
++				html += `</div>`;
++				return html;
++			};
++
++			b.archessRenderBoard = (forceNew?: boolean, skipSendUpdates?: boolean, targetScope: 'all' | 'p1' | 'p2' = 'all') => {
++				const st = b.archess;
++				const isInit = !st.boardRenderedOnce;
++				const uhtmlCmd = (isInit || forceNew) ? 'uhtml' : 'uhtmlchange';
++				if (isInit) st.boardRenderedOnce = true;
++
++				if (targetScope === 'p1') {
++					const p1Html = b.archessBuildBoardHtml('p1');
++					this.addSplit('p1', [uhtmlCmd, 'archessboard-p1', p1Html], []);
++				} else if (targetScope === 'p2') {
++					const p2Html = b.archessBuildBoardHtml('p2');
++					this.addSplit('p2', [uhtmlCmd, 'archessboard-p2', p2Html], []);
++				} else {
++					const p1Html = b.archessBuildBoardHtml('p1');
++					const p2Html = b.archessBuildBoardHtml('p2');
++					const specHtml = b.archessBuildBoardHtml('spec');
++
++					if (forceNew && !isInit) {
++						this.addSplit('p1', ['uhtmlchange', 'archessboard-p1', ''], ['uhtmlchange', 'archessboard-spec', '']);
++						this.addSplit('p2', ['uhtmlchange', 'archessboard-p2', ''], []);
++					}
++
++					this.addSplit('p1', [uhtmlCmd, 'archessboard-p1', p1Html], [uhtmlCmd, 'archessboard-spec', specHtml]);
++					this.addSplit('p2', ['uhtmlchange', 'archessboard-spec', ''], []);
++					this.addSplit('p2', [uhtmlCmd, 'archessboard-p2', p2Html], []);
++				}
++
++				if (!skipSendUpdates) {
++					this.sendUpdates();
++				}
++			};
++
++			const origMakeRequest = this.makeRequest.bind(this);
++			this.makeRequest = (type?: any) => {
++				if (b.archess && b.archess.phase === 'BOARD') {
++					for (let i = this.log.length - 1; i >= this.sentLogPos; i--) {
++						if (this.log[i].startsWith('|turn|')) {
++							this.log.splice(i, 1);
++						}
++					}
++					if (!b.archess.boardRenderedOnce) {
++						b.archessRenderBoard(false, true, 'all');
++					}
++				}
++				return origMakeRequest(type);
++			};
++
++			for (const side of this.sides) {
++				const origEmitRequest = side.emitRequest.bind(side);
++				(side as any).emitRequest = (update: any, updatedRequest?: boolean) => {
++					if (b.archess && b.archess.phase === 'BOARD') {
++						const waitReq = {
++							wait: true,
++							side: update?.side || side.getRequestData(),
++							rqid: update?.rqid,
++						};
++						side.activeRequest = waitReq as any;
++						return origEmitRequest(waitReq, updatedRequest);
++					}
++					if (b.archess && b.archess.phase === 'DUEL' && update && update.active && update.active[0]) {
++						update.active[0].trapped = true;
++						delete update.active[0].maybeTrapped;
++					}
++					return origEmitRequest(update, updatedRequest);
++				};
++			}
++
++			const origBattleChoose = this.choose.bind(this);
++			this.choose = (sideid: any, input: string) => {
++				if (b.archess && typeof input === 'string' && input.startsWith('archess ')) {
++					const raw = input.slice(8).trim();
++					const spaceIdx = raw.indexOf(' ');
++					const subcmd = spaceIdx >= 0 ? raw.slice(0, spaceIdx) : raw;
++					const argStr = spaceIdx >= 0 ? raw.slice(spaceIdx + 1).trim() : '';
++					if (subcmd === 'click') {
++						const parts = argStr.split(',');
++						b.archessClick(sideid, parseInt(parts[0], 10), parseInt(parts[1], 10));
++					} else if (subcmd === 'move') {
++						const parts = argStr.split(',').map((n: string) => parseInt(n, 10));
++						b.archessDirectMove(sideid, parts[0], parts[1], parts[2], parts[3]);
++					} else if (subcmd === 'skip') {
++						b.archessSkipBonus(sideid);
++					} else if (subcmd === 'retreat') {
++						b.archessRetreatDuel(sideid);
++					} else if (subcmd === 'board') {
++						b.archessRenderBoard(true, false, sideid);
++					}
++					return false;
++				}
++				return origBattleChoose(sideid, input);
++			};
++
++			b.archessCheckPromotion = (piece: any, r: number) => {
++				const promoRank = piece.sideId === 'p1' ? 0 : 7;
++				if (piece.role === 'P' && r === promoRank) {
++					piece.role = 'Q';
++					piece.promoted = true;
++					const side = piece.sideId === 'p1' ? this.p1 : this.p2;
++					const curSpecies = this.dex.species.get(piece.speciesId);
++					if (curSpecies.evos && curSpecies.evos.length > 0) {
++						const evoSpecies = this.dex.species.get(curSpecies.evos[0]);
++						piece.speciesId = evoSpecies.id;
++						piece.speciesName = evoSpecies.name;
++						b.archess.publicStatusText = `✨ PAWN PROMOTION & EVOLUTION! ${side.name}'s Pawn promoted to a Queen and evolved into ${evoSpecies.name}!`;
++					} else {
++						const queenTemplate = b.archessGetPokeBySlot(piece.sideId, 1);
++						const hpRatio = piece.hp / piece.maxHp;
++						piece.slotIdx = 1;
++						piece.speciesId = queenTemplate.species.id;
++						piece.speciesName = queenTemplate.species.name;
++						piece.maxHp = queenTemplate.maxhp;
++						piece.hp = Math.max(1, Math.round(piece.maxHp * hpRatio));
++						piece.item = queenTemplate.item;
++						piece.ability = queenTemplate.ability;
++						piece.movePP = queenTemplate.moveSlots.map((ms: any) => ms.pp);
++						b.archess.publicStatusText = `👑 PAWN PROMOTION! ${side.name}'s Pawn promoted into Queen ${piece.speciesName}!`;
++					}
++				}
++			};
++
++			b.archessExecuteBoardMove = (slot: 'p1' | 'p2', fromR: number, fromC: number, toR: number, toC: number, moveMeta: any) => {
++				const st = b.archess;
++				const atkPiece = st.board[fromR][fromC];
++				const defPiece = st.board[toR][toC];
++				if (!atkPiece) return;
++
++				st.selected[slot] = null;
++				st.validMoves[slot] = [];
++				st.privateHint.p1 = '';
++				st.privateHint.p2 = '';
++
++				if (!moveMeta.isCapture) {
++					st.board[toR][toC] = atkPiece;
++					st.board[fromR][fromC] = null;
++					atkPiece.hasMoved = true;
++
++					if (moveMeta.isCastle === 'ks') {
++						const rook = st.board[toR][7];
++						st.board[toR][5] = rook;
++						st.board[toR][7] = null;
++						if (rook) rook.hasMoved = true;
++						st.publicStatusText = `🏰 ${slot === 'p1' ? this.p1.name : this.p2.name} castled Kingside!`;
++					} else if (moveMeta.isCastle === 'qs') {
++						const rook = st.board[toR][0];
++						st.board[toR][3] = rook;
++						st.board[toR][0] = null;
++						if (rook) rook.hasMoved = true;
++						st.publicStatusText = `🏰 ${slot === 'p1' ? this.p1.name : this.p2.name} castled Queenside!`;
++					} else {
++						st.publicStatusText = `♟️ ${atkPiece.speciesName} (${ROLE_META[atkPiece.role].name}) moved ${sqToAlg(fromR, fromC)} → ${sqToAlg(toR, toC)}.`;
++					}
++
++					b.archessCheckPromotion(atkPiece, toR);
++					st.lastMove = { fromR, fromC, toR, toC };
++					st.galeforceSq = null;
++					st.turn = st.turn === 'p1' ? 'p2' : 'p1';
++					b.archessRenderBoard(false, false, 'all');
++					return;
++				}
++
++				st.phase = 'DUEL';
++				st.activeDuel = {
++					attackerSide: slot,
++					defenderSide: slot === 'p1' ? 'p2' : 'p1',
++					fromR,
++					fromC,
++					toR,
++					toC,
++					atkPiece,
++					defPiece,
++					lastHitWasSEOrCrit: false,
++				};
++				st.publicStatusText = `⚔️ CAPTURE DUEL @ ${sqToAlg(toR, toC)}: ${atkPiece.speciesName} (${atkPiece.hp}/${atkPiece.maxHp} HP) challenges ${defPiece.speciesName} (${defPiece.hp}/${defPiece.maxHp} HP)! Select your attack below!`;
++
++				const atkPoke = b.archessSyncPieceToPoke(atkPiece);
++				const defPoke = b.archessSyncPieceToPoke(defPiece);
++
++				this.add('-message', `⚔️ 1v1 CAPTURE DUEL @ ${sqToAlg(toR, toC)}: ${atkPiece.speciesName} (${atkPiece.hp}/${atkPiece.maxHp} HP) challenges ${defPiece.speciesName} (${defPiece.hp}/${defPiece.maxHp} HP)!`);
++
++				b.archessStartDuelOnStage(atkPoke, defPoke);
++
++				this.queue.list = [];
++				this.midTurn = false;
++				b.archessRenderBoard(true, true, 'all');
++				this.makeRequest('move');
++				this.sendUpdates();
++			};
++
++			b.archessClick = (slot: 'p1' | 'p2', r: number, c: number) => {
++				const st = b.archess;
++				if (st.phase !== 'BOARD') {
++					st.privateHint[slot] = `⚠️ Finish the active 1v1 Showdown capture duel using your move buttons below first!`;
++					b.archessRenderBoard(false, false, slot);
++					return;
++				}
++				if (st.turn !== slot) {
++					st.privateHint[slot] = `⏳ Waiting for ${st.turn === 'p1' ? this.p1.name : this.p2.name} (${st.turn === 'p1' ? 'White ♔' : 'Black ♚'}) to make their chess move.`;
++					b.archessRenderBoard(false, false, slot);
++					return;
++				}
++
++				const curSel = st.selected[slot];
++				if (curSel) {
++					const moveMeta = (st.validMoves[slot] || []).find((m: any) => m.r === r && m.c === c);
++					if (moveMeta) {
++						b.archessExecuteBoardMove(slot, curSel.r, curSel.c, r, c, moveMeta);
++						return;
++					}
++				}
++
++				if (st.galeforceSq && (st.galeforceSq.r !== r || st.galeforceSq.c !== c)) {
++					st.privateHint[slot] = `⚡ Galeforce Bonus Move active: move your piece at ${sqToAlg(st.galeforceSq.r, st.galeforceSq.c)} or click "Skip Bonus Move"!`;
++					b.archessRenderBoard(false, false, slot);
++					return;
++				}
++
++				const clickedPiece = st.board[r][c];
++				if (clickedPiece && clickedPiece.sideId === slot) {
++					st.selected[slot] = { r, c };
++					const moves = b.archessGetMoves(r, c);
++					st.validMoves[slot] = moves;
++					st.privateHint[slot] = `Selected ${clickedPiece.speciesName} (${ROLE_META[clickedPiece.role].name} at ${sqToAlg(r, c)}, ${clickedPiece.hp}/${clickedPiece.maxHp} HP) — ${moves.length} legal move(s).`;
++				} else {
++					st.selected[slot] = null;
++					st.validMoves[slot] = [];
++					st.privateHint[slot] = '';
++				}
++				b.archessRenderBoard(false, false, slot);
++			};
++
++			b.archessDirectMove = (slot: 'p1' | 'p2', fromR: number, fromC: number, toR: number, toC: number) => {
++				b.archessClick(slot, fromR, fromC);
++				b.archessClick(slot, toR, toC);
++			};
++
++			b.archessSkipBonus = (slot: 'p1' | 'p2') => {
++				const st = b.archess;
++				if (st.phase !== 'BOARD' || st.turn !== slot || !st.galeforceSq) return;
++				st.galeforceSq = null;
++				st.selected[slot] = null;
++				st.validMoves[slot] = [];
++				st.privateHint.p1 = '';
++				st.privateHint.p2 = '';
++				st.turn = st.turn === 'p1' ? 'p2' : 'p1';
++				st.publicStatusText = `⏭️ ${slot === 'p1' ? this.p1.name : this.p2.name} skipped their bonus chess move.`;
++				b.archessRenderBoard(false, false, 'all');
++			};
++
++			b.archessRetreatDuel = (slot: 'p1' | 'p2') => {
++				const st = b.archess;
++				if (st.phase !== 'DUEL' || !st.activeDuel) return;
++				if (st.activeDuel.attackerSide !== slot) return;
++
++				const d = st.activeDuel;
++				const atkSideObj = d.attackerSide === 'p1' ? this.p1 : this.p2;
++				const defSideObj = d.defenderSide === 'p1' ? this.p1 : this.p2;
++				const atkPoke = atkSideObj.active[0];
++				const defPoke = defSideObj.active[0];
++
++				const partingMove = defPoke.moveSlots[0]?.id || 'tackle';
++				this.add('-message', `↩ ${d.atkPiece.speciesName} retreats to ${sqToAlg(d.fromR, d.fromC)}! ${d.defPiece.speciesName} takes a parting shot!`);
++				this.actions.useMove(partingMove, defPoke, atkPoke);
++
++				if (!st.activeDuel || st.phase === 'BOARD') return;
++				if (d.atkPiece.hp <= 0 || atkPoke.hp <= 0 || atkPoke.fainted) {
++					d.atkPiece.hp = 0;
++					b.archessResolveDuelOutcome();
++					return;
++				}
++
++				b.archessSyncPokeToPiece(atkPoke, d.atkPiece);
++				b.archessSyncPokeToPiece(defPoke, d.defPiece);
++
++				st.phase = 'BOARD';
++				st.activeDuel = null;
++				st.galeforceSq = null;
++				st.privateHint.p1 = '';
++				st.privateHint.p2 = '';
++				st.turn = d.defenderSide;
++				st.publicStatusText = `↩ ${d.atkPiece.speciesName} survived the parting shot (${d.atkPiece.hp}/${d.atkPiece.maxHp} HP) and retreated to ${sqToAlg(d.fromR, d.fromC)}!`;
++				this.queue.list = [];
++				this.midTurn = false;
++				b.archessWithdrawStageSprites();
++				this.makeRequest('move');
++				b.archessRenderBoard(true, false, 'all');
++			};
++
++			b.archessResolveDuelOutcome = () => {
++				const st = b.archess;
++				if (st.phase !== 'DUEL' || !st.activeDuel) return;
++				const d = st.activeDuel;
++
++				const atkSideObj = d.attackerSide === 'p1' ? this.p1 : this.p2;
++				const defSideObj = d.defenderSide === 'p1' ? this.p1 : this.p2;
++				const atkPoke = atkSideObj.active[0];
++				const defPoke = defSideObj.active[0];
++
++				b.archessSyncPokeToPiece(atkPoke, d.atkPiece);
++				b.archessSyncPokeToPiece(defPoke, d.defPiece);
++
++				const atkDead = d.atkPiece.hp <= 0;
++				const defDead = d.defPiece.hp <= 0;
++				if (!atkDead && !defDead) return;
++
++				st.phase = 'BOARD';
++				st.activeDuel = null;
++				st.privateHint.p1 = '';
++				st.privateHint.p2 = '';
++				this.queue.list = [];
++				this.midTurn = false;
++				b.archessWithdrawStageSprites();
++
++				if (atkDead && defDead) {
++					st.board[d.fromR][d.fromC] = null;
++					st.board[d.toR][d.toC] = null;
++					st.publicStatusText = `💥 DOUBLE KNOCKOUT at ${sqToAlg(d.toR, d.toC)}! Both ${d.atkPiece.speciesName} and ${d.defPiece.speciesName} were removed from the board!`;
++					this.add('-message', st.publicStatusText);
++					if (d.defPiece.role === 'K' && d.atkPiece.role !== 'K') {
++						b.archessRenderBoard(true, true, 'all');
++						this.win(atkSideObj);
++						return;
++					} else if (d.atkPiece.role === 'K' && d.defPiece.role !== 'K') {
++						b.archessRenderBoard(true, true, 'all');
++						this.win(defSideObj);
++						return;
++					}
++					st.galeforceSq = null;
++					st.turn = d.defenderSide;
++					this.makeRequest('move');
++					b.archessRenderBoard(true, false, 'all');
++					return;
++				}
++
++				if (defDead && !atkDead) {
++					st.board[d.toR][d.toC] = d.atkPiece;
++					st.board[d.fromR][d.fromC] = null;
++					d.atkPiece.hasMoved = true;
++					st.lastMove = { fromR: d.fromR, fromC: d.fromC, toR: d.toR, toC: d.toC };
++
++					if (d.defPiece.role === 'K') {
++						st.publicStatusText = `👑 REGICIDE! ${d.atkPiece.speciesName} defeated Enemy King ${d.defPiece.speciesName} at ${sqToAlg(d.toR, d.toC)}!`;
++						this.add('-message', st.publicStatusText);
++						b.archessRenderBoard(true, true, 'all');
++						this.win(atkSideObj);
++						return;
++					}
++
++					b.archessCheckPromotion(d.atkPiece, d.toR);
++
++					if (d.lastHitWasSEOrCrit && !st.galeforceSq) {
++						st.galeforceSq = { r: d.toR, c: d.toC, sideId: d.attackerSide };
++						st.turn = d.attackerSide;
++						st.selected[d.attackerSide] = { r: d.toR, c: d.toC };
++						st.validMoves[d.attackerSide] = b.archessGetMoves(d.toR, d.toC);
++						st.publicStatusText = `⚡ GALEFORCE BONUS MOVE! ${d.atkPiece.speciesName} scored a Super-Effective / Critical KO and gets an extra chess move!`;
++						this.add('-message', st.publicStatusText);
++					} else {
++						st.galeforceSq = null;
++						st.turn = d.defenderSide;
++						st.publicStatusText = `🏆 ${d.atkPiece.speciesName} won the 1v1 duel and captured ${sqToAlg(d.toR, d.toC)} (${d.atkPiece.hp}/${d.atkPiece.maxHp} HP left)!`;
++						this.add('-message', st.publicStatusText);
++					}
++					this.makeRequest('move');
++					b.archessRenderBoard(true, false, 'all');
++					return;
++				}
++
++				if (atkDead && !defDead) {
++					st.board[d.fromR][d.fromC] = null;
++					if (d.atkPiece.role === 'K') {
++						st.publicStatusText = `👑 COUNTER-REGICIDE! Defender ${d.defPiece.speciesName} KO'd attacking King ${d.atkPiece.speciesName}!`;
++						this.add('-message', st.publicStatusText);
++						b.archessRenderBoard(true, true, 'all');
++						this.win(defSideObj);
++						return;
++					}
++					st.galeforceSq = null;
++					st.turn = d.defenderSide;
++					st.publicStatusText = `🛡️ COUNTER-KILL! Defender ${d.defPiece.speciesName} defeated attacker ${d.atkPiece.speciesName} and held ${sqToAlg(d.toR, d.toC)} (${d.defPiece.hp}/${d.defPiece.maxHp} HP left)!`;
++					this.add('-message', st.publicStatusText);
++					this.makeRequest('move');
++					b.archessRenderBoard(true, false, 'all');
++				}
++			};
++		},
++		onTrapPokemon(pokemon) {
++			pokemon.trapped = true;
++			pokemon.maybeTrapped = false;
++		},
++		onBeforeMove(pokemon, target, move) {
++			const b = this as any;
++			if (b.archess && b.archess.phase === 'BOARD') {
++				return false;
++			}
++		},
++		onDamage(damage, target, source, effect) {
++			const b = this as any;
++			if (!b.archess || b.archess.phase !== 'DUEL' || !b.archess.activeDuel) return;
++			const d = b.archess.activeDuel;
++			if (damage >= target.hp) {
++				if (effect && effect.effectType === 'Move' && source && target) {
++					const typeMod = this.dex.getEffectiveness(effect.type, target.getTypes());
++					const hitCrit = target.getMoveHitData(effect as any)?.crit;
++					if (typeMod > 0 || hitCrit) {
++						d.lastHitWasSEOrCrit = true;
++					}
++				}
++				const atkSideObj = d.attackerSide === 'p1' ? this.p1 : this.p2;
++				if (target.side === atkSideObj) {
++					d.atkPiece.hp = 0;
++				} else {
++					d.defPiece.hp = 0;
++				}
++				this.add('-message', `💥 ${target.name} was knocked out in the 1v1 duel!`);
++				target.hp = 1;
++				b.archessResolveDuelOutcome();
++				return 0;
++			}
++		},
++		onAfterMove(pokemon, target, move) {
++			const b = this as any;
++			if (!b.archess || b.archess.phase !== 'DUEL' || !b.archess.activeDuel) return;
++			const d = b.archess.activeDuel;
++			if (d.atkPiece.hp <= 0 || d.defPiece.hp <= 0) {
++				b.archessResolveDuelOutcome();
++				return;
++			}
++			const atkSideObj = d.attackerSide === 'p1' ? this.p1 : this.p2;
++			const defSideObj = d.defenderSide === 'p1' ? this.p1 : this.p2;
++			const atkPoke = atkSideObj.active[0];
++			const defPoke = defSideObj.active[0];
++			if (defPoke && defPoke.switchFlag) {
++				defPoke.switchFlag = false;
++			}
++			if (atkPoke && atkPoke.switchFlag) {
++				atkPoke.switchFlag = false;
++				b.archessSyncPokeToPiece(atkPoke, d.atkPiece);
++				b.archessSyncPokeToPiece(defPoke, d.defPiece);
++				b.archess.phase = 'BOARD';
++				b.archess.activeDuel = null;
++				b.archess.galeforceSq = null;
++				b.archess.privateHint.p1 = '';
++				b.archess.privateHint.p2 = '';
++				b.archess.turn = d.defenderSide;
++				b.archess.publicStatusText = `↩ ${d.atkPiece.speciesName} pivoted back to ${String.fromCharCode(97 + d.fromC)}${8 - d.fromR} with ${move.name}!`;
++				this.add('-message', b.archess.publicStatusText);
++				this.queue.list = [];
++				this.midTurn = false;
++				b.archessWithdrawStageSprites();
++				this.makeRequest('move');
++				b.archessRenderBoard(true, false, 'all');
++			}
++		},
++		onFaint(pokemon) {
++			const b = this as any;
++			if (b.archess && b.archess.phase === 'DUEL' && b.archess.activeDuel) {
++				const d = b.archess.activeDuel;
++				const atkSideObj = d.attackerSide === 'p1' ? this.p1 : this.p2;
++				if (pokemon.side === atkSideObj) {
++					d.atkPiece.hp = 0;
++				} else {
++					d.defPiece.hp = 0;
++				}
++				b.archessResolveDuelOutcome();
++			}
++		},
++		onResidual() {
++			const b = this as any;
++			if (b.archess && b.archess.phase === 'DUEL' && b.archess.activeDuel) {
++				const d = b.archess.activeDuel;
++				if (d.atkPiece.hp <= 0 || d.defPiece.hp <= 0) {
++					b.archessResolveDuelOutcome();
++					return;
++				}
++				const atkSideObj = d.attackerSide === 'p1' ? this.p1 : this.p2;
++				const defSideObj = d.defenderSide === 'p1' ? this.p1 : this.p2;
++				if (atkSideObj.active[0]) b.archessSyncPokeToPiece(atkSideObj.active[0], d.atkPiece);
++				if (defSideObj.active[0]) b.archessSyncPokeToPiece(defSideObj.active[0], d.defPiece);
++				b.archessRenderBoard(false, false, 'all');
++			}
++		},
++	},
++	sharedbench: {
++		effectType: 'Rule',
++		name: 'Shared Bench',
++		desc: "In multi battles, each player can switch to any benched Pok&eacute;mon on their team, including ones their ally picked (but not the ally's active Pok&eacute;mon)",
++		onBegin() {
++			this.add('rule', 'Shared Bench: You can switch to any benched Pokemon on your team, including your ally\'s.');
++		},
++	},
++	sharedallyteam: {
++		effectType: 'Rule',
++		name: 'Shared Ally Team',
++		desc: "In multi battles, only players 1 and 2 bring teams; players 3 and 4 get a copy of their ally's team. Allies cannot pick the same Pok&eacute;mon, and are told when the other picks",
++		onBegin() {
++			this.add('rule', 'Shared Ally Team: Players 3 and 4 pick from their ally\'s team. Allies cannot pick the same Pokemon.');
++		},
++	},
+ 	vgctimer: {
+ 		effectType: 'Rule',
+ 		name: 'VGC Timer',
+@@ -785,6 +2292,19 @@ export const Rulesets: import('../sim/dex-formats').FormatDataTable = {
+ 			'Timeout Auto Choose', 'DC Timer Bank',
+ 		],
+ 	},
++	vgcblitztimer: {
++		effectType: 'Rule',
++		name: 'VGC Blitz Timer',
++		desc: "VGC Blitz's timer, always on and cannot be turned off: 120 second Team Preview, 3 minutes Your Time, 20 seconds per turn. If turn time runs out, each Pok&eacute;mon has an 80% chance to use a random attacking move on a random opponent, a 10% chance to hit itself in confusion, and a 10% chance to do nothing",
++		ruleset: [
++			'Timer Starting = 180', 'Timer Grace = 120',
++			'Timer Add Per Turn = 0', 'Timer Max Per Turn = 20', 'Timer Max First Turn = 120',
++			'Timeout Auto Choose', 'DC Timer Bank',
++		],
++		onBegin() {
++			this.add('rule', 'VGC Blitz Timer: The battle timer is always on and cannot be turned off.');
++		},
++	},
+ 	speciesclause: {
+ 		effectType: 'ValidatorRule',
+ 		name: 'Species Clause',
+diff --git a/server/chat-commands/core.ts b/server/chat-commands/core.ts
+index 6e9f0ae..abd0205 100644
+--- a/server/chat-commands/core.ts
++++ b/server/chat-commands/core.ts
+@@ -14,6 +14,7 @@
+  */
+ 
+ import { Utils, ProcessManager } from '../../lib';
++import { rulesCardHtml } from '../room-battle';
+ import type { UserSettings } from '../users';
+ import type { GlobalPermission, RoomPermission } from '../user-groups';
+ 
+@@ -1285,10 +1286,15 @@ export const commands: Chat.ChatCommands = {
+ 
+ 		let playerOpts = undefined;
+ 		if (!player.hasTeam) {
+-			const ladder = Ladders(battle.format);
+-			const ready = await ladder.prepBattle(connection, 'challenge');
+-			if (!ready) return;
+-			playerOpts = ready.settings;
++			if ((slot === 'p3' || slot === 'p4') && Dex.formats.getRuleTable(Dex.formats.get(battle.format)).has('sharedallyteam')) {
++				// Shared Ally Team: the sim gives this player a copy of their ally's team
++				playerOpts = {};
++			} else {
++				const ladder = Ladders(battle.format);
++				const ready = await ladder.prepBattle(connection, 'challenge');
++				if (!ready) return;
++				playerOpts = ready.settings;
++			}
+ 		}
+ 
+ 		const fromUser = Ladders.challenges.accept(this);
+@@ -1392,6 +1398,131 @@ export const commands: Chat.ChatCommands = {
+ 		`/kickinactive - Activates the inactive timer, if the game supports it.`,
+ 	],
+ 
++	telepathy(target, room, user) {
++		let formatid = room?.battle ? room.battle.format : '';
++		if (!formatid && target) {
++			const format = Dex.formats.get(target);
++			if (format.exists) formatid = format.id;
++		}
++		const html = formatid ? rulesCardHtml(formatid, false) : '';
++		if (!html) {
++			throw new Chat.ErrorMessage(`Use /telepathy inside one of the custom battles, or /telepathy [format name], e.g. /telepathy [Gen 9 Champions] VGC Blitz`);
++		}
++		this.sendReplyBox(html);
++	},
++	vgchelp: 'telepathy',
++	telepathyhelp: [`/telepathy [format] - Shows the custom rules of the battle you are in, or of the named format.`],
++
++	ping(target, room, user) {
++		room = this.requireRoom();
++		const battle = room.battle;
++		if (!battle || !Dex.formats.getRuleTable(Dex.formats.get(battle.format)).has('nochat')) {
++			throw new Chat.ErrorMessage(`/ping only works inside a 4-player battle in this format.`);
++		}
++		const player = battle.playerTable[user.id];
++		if (!player) throw new Chat.ErrorMessage(`Only the players in this battle can ping.`);
++		const pings: { [id: string]: string } = {
++			focus: "Let's focus the same target!",
++			protect: "I'm going to Protect.",
++			switch: "I'm going to switch.",
++			careful: "Careful, don't hit me!",
++			mega: "I'm going to Mega Evolve.",
++			ready: "Ready!",
++			sorry: "Sorry!",
++		};
++		const signal = toID(target);
++		if (!pings[signal]) {
++			return this.sendReply(`Pings: ${Object.keys(pings).join(', ')}. Use /ping focus (only your ally sees it, one per turn).`);
++		}
++		const allyNum = player.num <= 2 ? player.num + 2 : player.num - 2;
++		const allyUser = battle.players[allyNum - 1]?.getUser();
++		if (!allyUser) throw new Chat.ErrorMessage(`Your ally is not here.`);
++		if (battle.lastPingTurn[player.num] === battle.turn) {
++			throw new Chat.ErrorMessage(`You already pinged this turn. You can ping again next turn.`);
++		}
++		battle.lastPingTurn[player.num] = battle.turn;
++		const text = Utils.escapeHTML(pings[signal]);
++		allyUser.sendTo(room, `|html|<div class="broadcast-blue"><strong>${Utils.escapeHTML(user.name)} pings you:</strong> ${text}</div>`);
++		this.sendReply(`|html|<div class="broadcast-blue">You pinged ${Utils.escapeHTML(allyUser.name)}: ${text}</div>`);
++	},
++	pinghelp: [`/ping [signal] - Sends a preset signal to your ally only (one per turn). Signals: focus, protect, switch, careful, mega, ready, sorry. Only works in the 4-player formats, where chat is disabled.`],
++	archess: {
++		click(target, room, user) {
++			const battleRoom = this.requireRoom();
++			const battle = battleRoom.battle;
++			if (!battle) throw new Chat.ErrorMessage(`This command can only be used inside an active ARChess battle room.`);
++			const player = battle.playerTable[user.id];
++			if (!player) throw new Chat.ErrorMessage(`Only active players (p1 or p2) can move pieces on the ARChess board.`);
++			if (battle.timer && (!battle.timer.timerRequesters || battle.timer.timerRequesters.size === 0)) {
++				battle.timer.stop();
++			}
++			const slot = (player as any).slot || `p${player.num}`;
++			const parts = target.split(',').map(s => s.trim());
++			const r = parseInt(parts[0], 10);
++			const c = parseInt(parts[1], 10);
++			if (isNaN(r) || isNaN(c) || r < 0 || r > 7 || c < 0 || c > 7) {
++				throw new Chat.ErrorMessage(`Invalid board coordinates.`);
++			}
++			void battle.stream.write(`>${slot} archess click ${r},${c}`);
++		},
++		move(target, room, user) {
++			const battleRoom = this.requireRoom();
++			const battle = battleRoom.battle;
++			if (!battle) throw new Chat.ErrorMessage(`This command can only be used inside an active ARChess battle room.`);
++			const player = battle.playerTable[user.id];
++			if (!player) throw new Chat.ErrorMessage(`Only active players (p1 or p2) can move pieces on the ARChess board.`);
++			if (battle.timer && (!battle.timer.timerRequesters || battle.timer.timerRequesters.size === 0)) {
++				battle.timer.stop();
++			}
++			const slot = (player as any).slot || `p${player.num}`;
++			const parts = target.toLowerCase().split(',').map(s => s.trim());
++			if (parts.length !== 2 || !/^[a-h][1-8]$/.test(parts[0]) || !/^[a-h][1-8]$/.test(parts[1])) {
++				throw new Chat.ErrorMessage(`Usage: /archess move e2,e4`);
++			}
++			const fromC = parts[0].charCodeAt(0) - 97;
++			const fromR = 8 - parseInt(parts[0][1], 10);
++			const toC = parts[1].charCodeAt(0) - 97;
++			const toR = 8 - parseInt(parts[1][1], 10);
++			void battle.stream.write(`>${slot} archess move ${fromR},${fromC},${toR},${toC}`);
++		},
++		skip(target, room, user) {
++			const battleRoom = this.requireRoom();
++			const battle = battleRoom.battle;
++			if (!battle) throw new Chat.ErrorMessage(`This command can only be used inside an active ARChess battle room.`);
++			const player = battle.playerTable[user.id];
++			if (!player) throw new Chat.ErrorMessage(`Only active players can skip a bonus move.`);
++			const slot = (player as any).slot || `p${player.num}`;
++			void battle.stream.write(`>${slot} archess skip`);
++		},
++		retreat(target, room, user) {
++			const battleRoom = this.requireRoom();
++			const battle = battleRoom.battle;
++			if (!battle) throw new Chat.ErrorMessage(`This command can only be used inside an active ARChess battle room.`);
++			const player = battle.playerTable[user.id];
++			if (!player) throw new Chat.ErrorMessage(`Only active players can trigger a tactical retreat.`);
++			const slot = (player as any).slot || `p${player.num}`;
++			void battle.stream.write(`>${slot} archess retreat`);
++		},
++		board(target, room, user) {
++			const battleRoom = this.requireRoom();
++			const battle = battleRoom.battle;
++			if (!battle) throw new Chat.ErrorMessage(`This command can only be used inside an active ARChess battle room.`);
++			const player = battle.playerTable[user.id];
++			const slot = player ? ((player as any).slot || `p${player.num}`) : 'p1';
++			void battle.stream.write(`>${slot} archess board`);
++		},
++		help() {
++			this.sendReplyBox(
++				`<strong>ARChess Commands (8x8 Chess Phase + 1v1 Showdown Capture Duels):</strong><br />` +
++				`&bull; <strong>Click Board Squares:</strong> Click your piece and a highlighted destination square on the 8x8 board.<br />` +
++				`&bull; <code>/archess move e2,e4</code> &mdash; Move a piece using algebraic coordinates.<br />` +
++				`&bull; <code>/archess skip</code> &mdash; Skip your Little Z Super-Effective / Critical-Hit bonus move.<br />` +
++				`&bull; <code>/archess retreat</code> &mdash; Retreat your attacker during a 1v1 capture duel (defender gets 1 parting hit).<br />` +
++				`&bull; <code>/archess board</code> &mdash; Re-render the 8x8 ARChess board at the bottom of the battle log.`
++			);
++		},
++	},
++
+ 	timer(target, room, user) {
+ 		target = toID(target);
+ 		room = this.requireRoom();
+@@ -1409,6 +1540,15 @@ export const commands: Chat.ChatCommands = {
+ 			const requester = [...timer.timerRequesters].join(', ');
+ 			return this.sendReply(this.TL`The game timer is ON (requested by ${requester})`);
+ 		}
++		if ((this.meansNo(target) || target === 'stop') && room.battle &&
++			Dex.formats.getRuleTable(Dex.formats.get(room.battle.format)).has('archessengine')) {
++			room.battle.timer.stop();
++			return this.sendReply(`The battle timer is now OFF.`);
++		}
++		if ((this.meansNo(target) || target === 'stop') && room.battle &&
++			Dex.formats.getRuleTable(Dex.formats.get(room.battle.format)).has('vgcblitztimer')) {
++			throw new Chat.ErrorMessage(`The timer cannot be turned off in this format.`);
++		}
+ 		const force = user.can('timer', null, room);
+ 		if (!force && !room.game.playerTable[user.id]) {
+ 			throw new Chat.ErrorMessage(this.TL`Access denied.`);
+diff --git a/server/chat.ts b/server/chat.ts
+index 2918f4f..26cc727 100644
+--- a/server/chat.ts
++++ b/server/chat.ts
+@@ -1149,6 +1149,20 @@ export class CommandContext extends MessageContext {
+ 		const user = this.user;
+ 		const connection = this.connection;
+ 
++		// No Chat rule: no chat in the battle room, and no PMs between the battle's players
++		if (room?.battle && Dex.formats.getRuleTable(Dex.formats.get(room.battle.format)).has('nochat')) {
++			throw new Chat.ErrorMessage(`Chat is disabled in this format. You can still use the battle buttons and commands.`);
++		}
++		if (targetUser) {
++			for (const gameRoomid of user.games) {
++				const battle = Rooms.get(gameRoomid)?.battle;
++				if (battle && battle.playerTable[targetUser.id] &&
++					Dex.formats.getRuleTable(Dex.formats.get(battle.format)).has('nochat')) {
++					throw new Chat.ErrorMessage(`Private messages are disabled between players in this format's battles.`);
++				}
++			}
++		}
++
+ 		if (!user.named) {
+ 			throw new Chat.ErrorMessage(this.TL`You must choose a name before you can talk.`);
+ 		}
+diff --git a/server/room-battle.ts b/server/room-battle.ts
+index ce18056..da15c37 100644
+--- a/server/room-battle.ts
++++ b/server/room-battle.ts
+@@ -12,7 +12,7 @@
+  */
+ 
+ import { execSync } from "child_process";
+-import { ProcessManager, type Streams } from '../lib';
++import { ProcessManager, Utils, type Streams } from '../lib';
+ import { BattleStream } from "../sim/battle-stream";
+ import { RoomGamePlayer, RoomGame } from "./room-game";
+ import * as ConfigLoader from './config-loader';
+@@ -470,6 +470,67 @@ export interface RoomBattlePlayerOptions {
+ 	hidden?: boolean;
+ }
+ 
++/**
++ * HTML "rules card" listing the custom rules in force in a format (empty string if it has none).
++ * Used at the start of every battle (collapsed) and by the /telepathy command (open).
++ */
++export function rulesCardHtml(formatid: string, collapsible: boolean): string {
++	const format = Dex.formats.get(formatid);
++	if (!format.exists) return '';
++	const ruleTable = Dex.formats.getRuleTable(format);
++	const timer = ruleTable.timer?.[0];
++	const rules: [string, string, string][] = [
++		['sharedallyteam', 'Shared Ally Team', "Only players 1 and 2 bring teams; players 3 and 4 use a copy of their ally's team. Everyone picks 2 (lead, then back), and you cannot pick the same Pokémon as your ally."],
++		['sharedbench', 'Shared Bench', "You can switch to any benched Pokémon on your team of 4, including your ally's (not the one they have on the field)."],
++		['teamhealing', 'Team Healing', "Revival Blessing can revive your ally's Pokémon too."],
++		['allyswitchtrade', 'Ally Switch Trade', "Ally Switch trades your active Pokémon, and who controls it, with your ally's."],
++		['onemegaperteam', 'One Mega Per Team', "Only one Pokémon per team can Mega Evolve."],
++		['banpick', 'Ban Pick', "Each player brings 6 Pokémon, secretly bans 1 of their opponent's Pokémon each game (revealed once both players lock in; in Bo3, you cannot ban the same Pokémon two games in a row), and then picks 4 (2 leads + 2 back) from their remaining 5."],
++		['inversebattle', 'Inverse Battle', "Type effectiveness is inverted: super-effective and resisted matchups are swapped, and type-chart immunities become 2x weaknesses (ability and item immunities like Levitate or Air Balloon still apply)."],
++		['championstriples', 'Champions Triples', "6v6 Triple Battle (3 active Pokémon per side: Left, Center, Right; all 6 Pokémon participate). Attacks, spread moves (0.75x damage), and abilities like Intimidate only affect adjacent Pokémon unless they are long-range (all single-target damaging Flying-type moves, Pulse/Aura moves, and Snipe Shot can target any Pokémon on the field). Flank Pokémon can use Shift (priority 0) to swap positions with the Center ally, and Ally Switch swaps the Left and Right flank Pokémon."],
++		['regmcf', 'Reg M-CF', "Expands the Regulation M-C roster with every Sub-Legendary ('Non-Restricted Legendary') Pokémon from Generations 1–9, all of their forms (Regional, Therian, Mask, Memory, and Mega forms), and their required items (Latiasite, Latiosite, Heatranite, Soul Dew, Ogerpon Masks, and Silvally Memories), while excluding Type: Null and Kubfu. Ogerpon receives its +1 Embody Aspect stat boost (+1 Spe for Teal, +1 SpD for Wellspring, +1 Atk for Hearthflame, +1 Def for Cornerstone) once per battle on its first switch-in, and loses it permanently once switched out."],
++		['vgchess', 'VGChess', "At Team Preview, interactively assign 4 Chess Roles to your 4 chosen Pokémon: ♔ King (ally deals 1.2x damage & takes 0.85x damage; takes 1.2x if left alone; if your King faints, you immediately lose by Checkmate), ♕ Queen (1.15x damage & ignores redirection; original Queen fainting gives ally -1 Atk/-1 SpA), 1 Tactical Piece — ♖ Rook (+1 Def/+1 SpD once per battle, immune to forced switches, 1.3x straight-file damage / 0.8x diagonal), ♗ Bishop (1.3x diagonal damage / 0.8x straight & -1 Spe Pin on diagonal hits), or ♘ Knight (bypasses Protect on switch-in turn, immune to Intimidate/hazards, & single-target hits Fork 1/8 HP to adjacent foe) — and ♙ Pawn (+1 Priority on first turn, 1/6 HP En Passant on retreating foes, & Promotes to ♕ Queen with +1 Atk/SpA/Spe upon scoring a KO or surviving 2 turns). Once per battle, swapping King and Rook triggers Castling (heals King 25% HP & Rook takes 0.5x damage that turn). Perish Song, Destiny Bond, Final Gambit, Revival Blessing, Baton Pass, Shed Tail, OHKO moves, Shadow Tag, and Arena Trap are banned."],
++		['rbyvgc', 'RBY VGC', "Standard VGC rules for Generation 1 (RBY) 2v2 Doubles with vanilla RBY mechanics: Closed Team Sheets, Bring 6, Pick 4 at Level 50, Species Clause, VGC Timer, and no Restricted or Mythical Pokémon (Mewtwo and Mew banned)."],
++		['gscvgc', 'GSC VGC', "Standard VGC rules for Generation 2 (GSC) 2v2 Doubles with vanilla GSC mechanics: Closed Team Sheets, Bring 6, Pick 4 at Level 50, Species Clause, Item Clause = 1, VGC Timer, and no Restricted or Mythical Pokémon (Mewtwo, Mew, Lugia, Ho-Oh, and Celebi banned)."],
++		['archessengine', 'ARChess Engine', "8x8 Pokémon Chess where capture attempts launch live 1v1 Showdown Singles duels. Bring 6 Pokémon mapped to Chess Roles (Slot 1 = King, Slot 2 = Queen, Slot 3 = Rook, Slot 4 = Bishop, Slot 5 = Knight, Slot 6 = Pawn). Scoring a Super-Effective or Critical Hit KO in a 1v1 duel grants a Little Z Galeforce bonus move on the board, and knocking out the enemy King wins the match."],
++		['kindredspirits', 'Kindred Spirits', "When two canonical Kindred Spirit Pokémon are active together on your side (e.g., Glalie & Froslass, Toxtricity & Rillaboom/Noivern, Scizor & Kleavor, Hatterene & Grimmsnarl, Poliwrath & Politoed, Dragalge & Clawitzer, Gardevoir & Gallade, Oranguru & Passimian, Slowbro & Slowking, Applin evos, Pincurchin & Alolan Raichu, Polteageist & Sinistcha, Aromatisse & Slurpuff, Farfetch'd & Sirfetch'd, Sableye & Mawile, Elemental Monkeys, Eeveelutions, Plusle & Minun, Volbeat & Illumise, Electivire & Magmortar), they resonate for shared field buffs, stat boosts, or combined abilities."],
++		['naturalenemies', 'Natural Enemies', "When canonical rivals face each other across the field (e.g., Tinkaton vs. Corviknight/Skarmory, Armarouge vs. Ceruledge, Garchomp vs. Salamence, Golisopod vs. Grapploct, Gengar vs. Clefable, Toxapex vs. Clawitzer/Araquanid/Corsola, Hawlucha vs. heavyweight Fighting-types, Heracross vs. Pinsir, Tyranitar vs. Hydreigon/Baxcalibur/Duraludon/Archaludon, Meowscarada vs. Incineroar, Rillaboom vs. Indeedee, Felines vs. Canines, Zangoose vs. Seviper, Heatmor vs. Durant), they trigger turf wars, duel locks, or rivalry stat adjustments."],
++		['confusionfriendlyfire', 'Confusion Friendly Fire', "A confused Pokémon that hurts itself has a 50% chance to deal that damage to its ally instead."],
++		['infatuationfriendlyfire', 'Infatuation Friendly Fire', "When love would stop a Pokémon from moving, it has a 50% chance to attack its ally at half damage instead (single-target damaging moves)."],
++		['partneritempass', 'Partner Item Pass', "Helping Hand lends your held item to your ally for the turn."],
++		['mutualsacrifice', 'Mutual Sacrifice', "When a Pokémon faints with Memento or Final Gambit, its ally has a 75% chance to get 3 random stat boosts (which can stack on the same stat), and a 25% chance of nothing happening."],
++		['overheadpain', 'Overhead Pain', "Spread moves deal 1.5x damage to your ally if you are both at half HP or less."],
++		['telepathyinsight', 'Telepathy Insight', "A Pokémon with Telepathy is told its ally's chosen move, if it has not chosen yet."],
++		['nochat', 'No Chat', "Chat is off. Type /ping focus (or protect, switch, careful, mega, ready, sorry) to signal your ally, once per turn."],
++		['forceopenteamsheets', 'Open Team Sheets', "Team sheets are shown automatically at team preview."],
++		['openteamsheets', 'Open Team Sheets', "Optional: every player must accept for the sheets to be shown."],
++		['multibo3series', 'Best-of-3', "The first team to win 2 games wins the series."],
++	];
++	if (timer && ruleTable.has('vgcblitztimer')) {
++		rules.push(['vgcblitztimer', 'Blitz timer', `Always on and cannot be turned off: ${timer.maxFirstTurn}s for team preview, ` +
++			`${Math.round(timer.starting / 60 * 10) / 10} min Your Time, ${timer.maxPerTurn}s per turn. ` +
++			`If turn time runs out, each Pokémon has an 80% chance to use a random attacking move on a random opponent, a 10% chance to hit itself in confusion, and a 10% chance to do nothing.`]);
++	}
++	const customIds = new Set(rules.map(rule => rule[0]));
++	const shown = rules.filter(([id]) => ruleTable.has(id));
++	if (!shown.some(([id]) => id !== 'openteamsheets' && id !== 'forceopenteamsheets' && customIds.has(id))) return '';
++	const items = shown.map(([, name, text]) => `<li><strong>${Utils.escapeHTML(name)}:</strong> ${Utils.escapeHTML(text)}</li>`).join('');
++	const title = `Rules of ${Utils.escapeHTML(format.name)}`;
++	if (collapsible) {
++		return `<div class="infobox"><details><summary><strong>${title}</strong> (click to open; type /telepathy to see it again)</summary><ul>${items}</ul></details></div>`;
++	}
++	return `<strong>${title}</strong><ul>${items}</ul>`;
++}
++
++/** State of a best-of-3 series between two teams of 2 players ('Multi Bo3 Series' rule) */
++export interface MultiSeries {
++	game: number;
++	score: [number, number];
++	/** packed teams of players 1 and 2 (players 3 and 4 use copies of their ally's team) */
++	teams: (string | undefined)[];
++	userids: ID[];
++}
++
+ export interface RoomBattleOptions {
+ 	format: string;
+ 	/**
+@@ -482,6 +543,7 @@ export interface RoomBattleOptions {
+ 	 */
+ 	players: RoomBattlePlayerOptions[];
+ 	delayedStart?: boolean | 'multi';
++	series?: MultiSeries;
+ 	challengeType?: ChallengeType;
+ 	allowRenames?: boolean;
+ 	rated?: number | boolean | null;
+@@ -505,6 +567,9 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
+ 	override readonly title: string;
+ 	override readonly allowRenames: boolean;
+ 	readonly format: string;
++	/** ids and names of everyone who joined, in slot order (a forfeiting player's slot is cleared before the game ends) */
++	knownPlayerIds: ID[] = [];
++	knownPlayerNames: string[] = [];
+ 	/** Will exist even if the game is unrated, in case it's later forced to be rated */
+ 	readonly ladder: string;
+ 	readonly gameType: string | undefined;
+@@ -538,6 +603,8 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
+ 	score: number[] | null = null;
+ 	inputLog: string[] | null = null;
+ 	turn = 0;
++	/** /ping: the turn on which each player (by slot number) last sent a ping, so they can only ping once per turn */
++	lastPingTurn: { [playerNum: number]: number } = {};
+ 	rqid = 1;
+ 	requestCount = 0;
+ 	options: RoomBattleOptions;
+@@ -590,6 +657,27 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
+ 			const p = options.players[i];
++			if (i === 0 && (!this.room.parent || !(this.room.parent as any).bo3BanPickInitialized)) {
++				if (this.room.parent) (this.room.parent as any).bo3BanPickInitialized = true;
++				try {
++					const fs = require('fs');
++					const file = require('path').join(require('os').tmpdir(), 'ps-bo3-banpick.json');
++					if (fs.existsSync(file)) {
++						const data = JSON.parse(fs.readFileSync(file, 'utf8'));
++						const p1Id = options.players[0]?.user?.id || Dex.toID(options.players[0]?.name || '');
++						const p2Id = options.players[1]?.user?.id || Dex.toID(options.players[1]?.name || '');
++						if (p1Id && p2Id) {
++							delete data[`${p1Id}->${p2Id}`];
++							delete data[`${p2Id}->${p1Id}`];
++							fs.writeFileSync(file, JSON.stringify(data));
++						}
++					}
++				} catch {}
++			}
+ 			const player = this.addPlayer(p?.user || null, p || null);
+ 			if (!player) throw new Error(`failed to create player ${i + 1} in ${room.roomid}`);
++			if (p?.user) {
++				this.knownPlayerIds[i] = p.user.id;
++				this.knownPlayerNames[i] = p.user.name;
++			}
+ 		}
+ 		if (options.inputLog) {
+ 			let scanIndex = 0;
+@@ -604,7 +692,17 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
+ 			}
+ 		}
+ 		this.timer = new RoomBattleTimer(this);
+-		if (Config.forcetimer || this.format.includes('blitz')) this.timer.start();
++		if (Config.forcetimer || this.format.includes('blitz') || Dex.formats.getRuleTable(Dex.formats.get(this.format)).has('vgcblitztimer')) this.timer.start();
++		const origChoose = this.choose.bind(this);
++		this.choose = (user: User, data: string) => {
++			this.requestCount = 0;
++			return origChoose(user, data.split('|')[0]);
++		};
++		const origUndo = this.undo.bind(this);
++		this.undo = (user: User, data: string) => {
++			this.requestCount = 0;
++			return origUndo(user, '');
++		};
+ 		this.start();
+ 	}
+ 
+@@ -706,6 +804,7 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
+ 			Rooms.global.onCreateBattleRoom(users, this.room, { rated: this.rated });
+ 			this.started = true;
+ 			this.room.add(`|uhtmlchange|invites|`);
++			this.postRulesCard();
+ 		} else if (!this.started && this.invitesFull()) {
+ 			this.sendInviteForm(true);
+ 		}
+@@ -861,6 +960,7 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
+ 			this.logData = null;
+ 		}
+ 		this.room.parent?.game?.onBattleWin?.(this.room, winnerid);
++		this.handleSeries(winnerid);
+ 		// If the room's replay was hidden, don't let users join after the game is over
+ 		if (this.room.hideReplay) {
+ 			this.room.settings.modjoin = '%';
+@@ -881,6 +981,73 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
+ 			return this.room.uploadReplay(undefined, undefined, options);
+ 		}
+ 	}
++	/** 'Multi Bo3 Series' rule: tally the result and start the next game */
++	handleSeries(winnerid: ID) {
++		if (this.players.length !== 4) return;
++		if (!Dex.formats.getRuleTable(Dex.formats.get(this.format)).has('multibo3series')) return;
++		const series: MultiSeries = this.options.series || {
++			game: 1,
++			score: [0, 0],
++			teams: [this.options.players[0]?.team, this.options.players[1]?.team],
++			userids: [...this.knownPlayerIds],
++		};
++		const ids = this.knownPlayerIds;
++		let winningTeam = -1;
++		if (winnerid === ids[0] || winnerid === ids[2]) winningTeam = 0;
++		if (winnerid === ids[1] || winnerid === ids[3]) winningTeam = 1;
++		const pn = this.knownPlayerNames;
++		const names = [`${pn[0]} & ${pn[2]}`, `${pn[1]} & ${pn[3]}`];
++		const score: [number, number] = [
++			series.score[0] + (winningTeam === 0 ? 1 : 0),
++			series.score[1] + (winningTeam === 1 ? 1 : 0),
++		];
++		const SERIES_DELAY = 20;
++		const MAX_GAMES = 5;
++		const scoreLine = Utils.html`${names[0]} ${score[0]} - ${score[1]} ${names[1]}`;
++		const seriesWinner = score[0] >= 2 ? 0 : score[1] >= 2 ? 1 : -1;
++		if (seriesWinner >= 0) {
++			this.room.add(
++				`|html|<div class="broadcast-green"><strong>Game ${series.game} won by ${Utils.escapeHTML(names[winningTeam])}.</strong><br />` +
++				`<strong>${Utils.escapeHTML(names[seriesWinner])} win the best-of-3 series!</strong> Final score: ${scoreLine}</div>`
++			).update();
++			return;
++		}
++		if (series.game >= MAX_GAMES) {
++			this.room.add(`|html|<div class="broadcast-blue">Too many tied games. The best-of-3 series ends here. Score: ${scoreLine}</div>`).update();
++			return;
++		}
++		const result = winningTeam >= 0 ?
++			`Game ${series.game} won by ${Utils.escapeHTML(names[winningTeam])}.` :
++			`Game ${series.game} was a tie and will be replayed.`;
++		this.room.add(
++			`|html|<div class="broadcast-blue"><strong>${result}</strong> Series score: ${scoreLine}<br />` +
++			`The next game starts in ${SERIES_DELAY} seconds.</div>`
++		).update();
++		const next: MultiSeries = { ...series, game: series.game + 1, score };
++		setTimeout(() => this.startNextSeriesGame(next, names), SERIES_DELAY * 1000);
++	}
++	startNextSeriesGame(series: MultiSeries, names: string[]) {
++		const users = series.userids.map(id => Users.get(id));
++		if (users.some(user => !user?.connected)) {
++			this.room.add(`|html|<div class="broadcast-red">The best-of-3 series was cancelled because a player is no longer connected.</div>`).update();
++			return;
++		}
++		const options: RoomBattleOptions & Partial<RoomSettings> = {
++			format: this.format,
++			players: users.map((user, i) => ({ user: user!, team: i < 2 ? series.teams[i] : undefined })),
++			challengeType: this.challengeType,
++			rated: false,
++			series,
++		};
++		const room = Rooms.createBattle(options);
++		if (!room) {
++			this.room.add(`|html|<div class="broadcast-red">The next game could not be started.</div>`).update();
++			return;
++		}
++		const scoreLine = Utils.html`${names[0]} ${series.score[0]} - ${series.score[1]} ${names[1]}`;
++		room.add(`|html|<div class="broadcast-blue"><strong>Game ${series.game} of the best-of-3.</strong> Series score: ${scoreLine}</div>`).update();
++		this.room.add(`|uhtml|nextgame|Next: <a href="/${room.roomid}"><strong>Game ${series.game}</strong></a>`).update();
++	}
+ 	async updateLadder(p1score: number, winnerid: ID) {
+ 		this.room.rated = 0;
+ 		const winner = Users.get(winnerid);
+@@ -1167,6 +1334,9 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
+ 		if (user) {
+ 			player.active = user.inRooms.has(this.roomid);
+ 			player.knownActive = true;
++			const playerIndex = this.players.indexOf(player);
++			this.knownPlayerIds[playerIndex] = user.id;
++			this.knownPlayerNames[playerIndex] = player.name;
+ 			const options = {
+ 				name: player.name,
+ 				avatar: user.avatar,
+@@ -1226,11 +1396,18 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
+ 		if (!delayStart) {
+ 			Rooms.global.onCreateBattleRoom(users as User[], this.room, { rated: this.rated });
+ 			this.started = true;
++			this.postRulesCard();
+ 		} else if (delayStart === 'multi') {
+ 			this.room.add(`|uhtml|invites|<div class="broadcast broadcast-blue"><strong>This is a 4-player challenge battle</strong><br />The players will need to add more players before the battle can start.</div>`);
+ 		}
+ 	}
+ 
++	/** Shows the format's custom rules (collapsed) at the start of the battle */
++	postRulesCard() {
++		const html = rulesCardHtml(this.format, true);
++		if (html) this.room.add(`|uhtml|rulescard|${html}`).update();
++	}
++
+ 	invitesFull() {
+ 		return this.players.every(player => player.id || player.invite);
+ 	}
+diff --git a/sim/battle-actions.ts b/sim/battle-actions.ts
+index 634eafc..3a4a502 100644
+--- a/sim/battle-actions.ts
++++ b/sim/battle-actions.ts
+@@ -1957,11 +1957,17 @@ export class BattleActions {
+ 
+ 		// Limit one mega evolution
+ 		const wasMega = pokemon.canMegaEvo;
+-		for (const ally of pokemon.side.pokemon) {
+-			if (wasMega) {
+-				ally.canMegaEvo = false;
+-			} else {
+-				ally.canUltraBurst = null;
++		const sides = [pokemon.side];
++		// One Mega Per Team: the ally's side is limited too (in multi battles each ally is its own side)
++		if (this.battle.ruleTable.has('onemegaperteam') && pokemon.side.allySide) sides.push(pokemon.side.allySide);
++		for (const side of sides) {
++			for (const ally of side.pokemon) {
++				if (wasMega) {
++					ally.canMegaEvo = false;
++				} else {
++					ally.canUltraBurst = null;
++				}
+ 			}
+ 		}
++		this.battle.updateKindredAndEnemies();
+ 
+diff --git a/sim/battle.ts b/sim/battle.ts
+index 6dc37c3..5fffa69 100644
+--- a/sim/battle.ts
++++ b/sim/battle.ts
+@@ -1437,7 +1437,7 @@ export class Battle {
+ 		case 'switch':
+ 			for (let i = 0; i < this.sides.length; i++) {
+ 				const side = this.sides[i];
+-				if (!side.pokemonLeft) continue;
++				if (!side.pokemonLeft && !side.getSharedBench().length) continue;
+ 				const switchTable = side.active.map(pokemon => !!pokemon?.switchFlag);
+ 				if (switchTable.some(Boolean)) {
+ 					requests[i] = { forceSwitch: switchTable, side: side.getRequestData() };
+@@ -1577,6 +1577,464 @@ export class Battle {
+ 		return true;
+ 	}
+ 
++	/** Kindred Spirits & Natural Enemies helper: base species ID of a Pokemon */
++	private baseSpeciesId(pokemon: Pokemon): string {
++		return this.toID(pokemon.species.baseSpecies || pokemon.species.name);
++	}
++
++	/** Returns the active Kindred Spirits effect ID for `pokemon` and its active ally, or '' if none */
++	getKindredEffect(pokemon: Pokemon): string {
++		if (!this.ruleTable.has('kindredspirits') || pokemon.fainted || !pokemon.isActive) return '';
++		const ally = pokemon.adjacentAllies()[0];
++		if (!ally || ally.fainted || pokemon.species.num === ally.species.num) return '';
++		const a = this.baseSpeciesId(pokemon);
++		const b = this.baseSpeciesId(ally);
++		const pair = new Set([a, b]);
++		if (pair.has('glalie') && pair.has('froslass')) return 'blizzardspecters';
++		if (pair.has('toxtricity') && (pair.has('rillaboom') || pair.has('noivern'))) return 'ampedrhythm';
++		if (pair.has('scizor') && pair.has('kleavor')) return 'twinmantis';
++		if (pair.has('hatterene') && pair.has('grimmsnarl')) return 'faefolk';
++		if (pair.has('poliwrath') && pair.has('politoed')) return 'pondsovereign';
++		if (pair.has('dragalge') && pair.has('clawitzer')) return 'abyssalartillery';
++		if (pair.has('gardevoir') && pair.has('gallade')) return 'chivalrousward';
++		if (pair.has('oranguru') && pair.has('passimian')) return 'jungletactics';
++		if (pair.has('slowbro') && pair.has('slowking')) return 'twinminds';
++		const applins = ['flapple', 'appletun', 'hydrapple'];
++		if (applins.includes(a) && applins.includes(b)) return 'orchardharvest';
++		if ((a === 'pincurchin' && ally.species.id === 'raichualola') ||
++			(b === 'pincurchin' && pokemon.species.id === 'raichualola')) return 'highvoltagesurf';
++		if (pair.has('polteageist') && pair.has('sinistcha')) return 'steepedhospitality';
++		if (pair.has('aromatisse') && pair.has('slurpuff')) return 'sweetsavory';
++		if (pair.has('farfetchd') && pair.has('sirfetchd')) return 'mastersquire';
++		if (pair.has('sableye') && pair.has('mawile')) return 'caveambush';
++		const monkeys = ['simisage', 'simisear', 'simipour'];
++		if (monkeys.includes(a) && monkeys.includes(b)) return 'pledgeharmony';
++		const eevees = ['vaporeon', 'jolteon', 'flareon', 'espeon', 'umbreon', 'leafeon', 'glaceon', 'sylveon'];
++		if (eevees.includes(a) && eevees.includes(b)) return 'geneticresonance';
++		if (pair.has('plusle') && pair.has('minun')) return 'magneticcheer';
++		if (pair.has('volbeat') && pair.has('illumise')) return 'fireflyserenade';
++		if (pair.has('electivire') && pair.has('magmortar')) return 'twingenerators';
++		return '';
++	}
++
++	hasKindredEffect(pokemon: Pokemon, effectId: string): boolean {
++		return this.getKindredEffect(pokemon) === effectId;
++	}
++
++	/** Checks if `pokemon` currently has the given Natural Enemies effect active across the field */
++	hasEnemyEffect(pokemon: Pokemon, effectId: string): boolean {
++		if (!this.ruleTable.has('naturalenemies') || pokemon.fainted || !pokemon.isActive) return false;
++		const me = this.baseSpeciesId(pokemon);
++		const foes = pokemon.side.foes().filter(foe => !foe.fainted);
++		if (!foes.length) return false;
++		const foeIds = foes.map(foe => this.baseSpeciesId(foe));
++		const felines = ['persian', 'liepard', 'meowstic', 'purugly', 'delcatty'];
++		const canines = ['mabosstiff', 'houndstone', 'arcanine', 'houndoom', 'lycanroc', 'boltund', 'stoutland'];
++		const kaiju = ['hydreigon', 'baxcalibur', 'duraludon', 'archaludon'];
++		switch (effectId) {
++		case 'skyhunter':
++			return me === 'tinkaton' && foeIds.some(id => id === 'corviknight' || id === 'skarmory');
++		case 'duelofhonor':
++			return (me === 'armarouge' && foeIds.includes('ceruledge')) ||
++				(me === 'ceruledge' && foeIds.includes('armarouge'));
++		case 'apexaerial':
++			return (me === 'garchomp' && foeIds.includes('salamence')) ||
++				(me === 'salamence' && foeIds.includes('garchomp'));
++		case 'abyssalgrudge':
++			return (me === 'golisopod' && foeIds.includes('grapploct')) ||
++				(me === 'grapploct' && foeIds.includes('golisopod'));
++		case 'shadowdoppelganger':
++			return (me === 'gengar' && foeIds.includes('clefable')) ||
++				(me === 'clefable' && foeIds.includes('gengar'));
++		case 'reefturfwar_toxapex':
++			return me === 'toxapex' && foeIds.some(id => id === 'clawitzer' || id === 'araquanid');
++		case 'giantslayer':
++			return me === 'hawlucha' && foes.some(foe => foe.hasType('Fighting') && foe.weighthg >= 800);
++		case 'saptreebrawl':
++			return (me === 'heracross' && foeIds.includes('pinsir')) ||
++				(me === 'pinsir' && foeIds.includes('heracross'));
++		case 'titanclash':
++			return (me === 'tyranitar' && foeIds.some(id => kaiju.includes(id))) ||
++				(kaiju.includes(me) && foeIds.includes('tyranitar'));
++		case 'felinesupremacy':
++			return (me === 'meowscarada' && foeIds.includes('incineroar')) ||
++				(me === 'incineroar' && foeIds.includes('meowscarada'));
++		case 'catanddog_feline':
++			return felines.includes(me) && foeIds.some(id => canines.includes(id));
++		case 'bloodfeud':
++			return (me === 'zangoose' && foeIds.includes('seviper')) ||
++				(me === 'seviper' && foeIds.includes('zangoose'));
++		case 'predatorprey_heatmor':
++			return me === 'heatmor' && foeIds.includes('durant');
++		case 'coralgrudge_corsola':
++			return (me === 'corsola' || me === 'cursola') && foeIds.some(id => id === 'toxapex' || id === 'mareanie');
++		}
++		return false;
++	}
++
++	/** Calculates combined Base Power multiplier from Kindred Spirits and Natural Enemies */
++	getKindredBasePowerMult(attacker: Pokemon, defender: Pokemon, move: ActiveMove): number {
++		let mult = 1;
++		const me = this.baseSpeciesId(attacker);
++		const targetId = defender ? this.baseSpeciesId(defender) : '';
++		const kindred = this.getKindredEffect(attacker);
++		if (kindred === 'blizzardspecters') {
++			if ((me === 'glalie' && move.type === 'Ice') || (me === 'froslass' && move.type === 'Ghost')) mult *= 1.3;
++		} else if (kindred === 'ampedrhythm' && (move.flags['sound'] || move.id === 'drumbeating')) {
++			mult *= 1.3;
++		} else if (kindred === 'twinmantis' && me === 'kleavor' && !attacker.hasAbility('technician') && move.basePower <= 60) {
++			mult *= 1.5;
++		} else if (kindred === 'abyssalartillery' && move.flags['pulse'] && !attacker.hasAbility('megalauncher')) {
++			mult *= 1.5;
++		} else if (kindred === 'chivalrousward' && (move.flags['slicing'] || move.type === 'Fairy')) {
++			mult *= 1.2;
++		} else if (kindred === 'orchardharvest' && (move.type === 'Grass' || move.type === 'Dragon')) {
++			mult *= 1.3;
++		} else if (kindred === 'pledgeharmony') {
++			if ((me === 'simisage' && move.type === 'Grass') ||
++				(me === 'simisear' && move.type === 'Fire') ||
++				(me === 'simipour' && move.type === 'Water')) {
++				mult *= 1.5;
++			}
++		} else if (kindred === 'geneticresonance') {
++			mult *= 1.2;
++		} else if (kindred === 'magneticcheer' && move.type === 'Electric') {
++			mult *= 1.3;
++		} else if (kindred === 'twingenerators' && (move.type === 'Electric' || move.type === 'Fire')) {
++			mult *= 1.3;
++		}
++		if (this.ruleTable.has('naturalenemies')) {
++			if (this.hasEnemyEffect(attacker, 'apexaerial') && move.type === 'Dragon') {
++				mult *= 1.3;
++			}
++			if (this.hasEnemyEffect(attacker, 'abyssalgrudge') && move.flags['contact']) {
++				mult *= 1.3;
++			}
++			if (this.hasEnemyEffect(attacker, 'shadowdoppelganger') && me === 'clefable' &&
++				targetId === 'gengar' && move.type === 'Fairy') {
++				mult *= 1.3;
++			}
++			if (this.hasEnemyEffect(attacker, 'giantslayer') && move.type === 'Flying') {
++				mult *= 1.25;
++			}
++			const kaiju = ['hydreigon', 'baxcalibur', 'duraludon', 'archaludon'];
++			if (this.hasEnemyEffect(attacker, 'titanclash') && !move.spreadHit &&
++				((me === 'tyranitar' && kaiju.includes(targetId)) || (kaiju.includes(me) && targetId === 'tyranitar'))) {
++				mult *= 1.3;
++			}
++			if (this.hasEnemyEffect(attacker, 'bloodfeud') &&
++				((me === 'zangoose' && targetId === 'seviper') || (me === 'seviper' && targetId === 'zangoose'))) {
++				mult *= 1.5;
++			}
++		}
++		return mult;
++	}
++
++	/** Synchronizes Kindred Spirits and Natural Enemies field effects, entry boosts, and auras */
++	updateKindredAndEnemies() {
++		const hasKindred = this.ruleTable.has('kindredspirits');
++		const hasEnemies = this.ruleTable.has('naturalenemies');
++		if (!hasKindred && !hasEnemies) return;
++		if (!this.sides.every(s => s.active.some(p => p && !p.fainted))) return;
++
++		const allActive: Pokemon[] = [];
++		for (const side of this.sides) {
++			for (const mon of side.active) {
++				if (mon && !mon.fainted) {
++					allActive.push(mon);
++					if (!mon.volatiles['kindredaura']) mon.addVolatile('kindredaura');
++				}
++			}
++		}
++
++		// 1. Kindred Spirits (allied pairs)
++		if (hasKindred) {
++			for (const side of this.sides) {
++				const actives = side.allies();
++				if (actives.length < 2) continue;
++				const [a, b] = [actives[0], actives[1]];
++				if (!a || !b || a.fainted || b.fainted || a === b || a.species.num === b.species.num) continue;
++				const effect = this.getKindredEffect(a);
++				if (!effect) continue;
++				const pairKey = `kindred:${effect}`;
++				const stateA = ((a as any).kindredTriggered ||= {});
++				const stateB = ((b as any).kindredTriggered ||= {});
++				if (!stateA[pairKey] || !stateB[pairKey]) {
++					stateA[pairKey] = true;
++					stateB[pairKey] = true;
++					switch (effect) {
++					case 'blizzardspecters':
++						this.add('-message', `Blizzard Specters: ${a.name} and ${b.name} summon a haunting snowstorm!`);
++						this.field.setWeather('snowscape');
++						break;
++					case 'ampedrhythm':
++						this.add('-message', `Amped Rhythm: ${a.name} and ${b.name} amplify their sound waves!`);
++						break;
++					case 'twinmantis':
++						this.add('-message', `Twin Mantis Blades: ${a.name} and ${b.name} sharpen their twin blades!`);
++						break;
++					case 'faefolk':
++						this.add('-message', `Fae Folk Pact: ${a.name} and ${b.name} weave a wicked fairy pact!`);
++						break;
++					case 'pondsovereign':
++						this.add('-message', `Pond Sovereign: ${a.name} and ${b.name} rule the rain-soaked pond!`);
++						break;
++					case 'abyssalartillery':
++						this.add('-message', `Abyssal Artillery: ${a.name} and ${b.name} share Adaptability and Mega Launcher!`);
++						break;
++					case 'chivalrousward': {
++						this.add('-message', `Chivalrous Ward: ${a.name} and ${b.name} stand guard for one another!`);
++						const gard = this.baseSpeciesId(a) === 'gardevoir' ? a : b;
++						const gall = this.baseSpeciesId(a) === 'gallade' ? a : b;
++						this.boost({ def: 1 }, gard, gard);
++						this.boost({ spd: 1 }, gall, gall);
++						break;
++					}
++					case 'jungletactics':
++						this.add('-message', `Jungle Tactics: ${a.name} and ${b.name} coordinate their jungle strategy!`);
++						break;
++					case 'twinminds':
++						this.add('-message', `Twin Minds: ${a.name} and ${b.name} link their psychic regeneration!`);
++						break;
++					case 'orchardharvest':
++						this.add('-message', `Orchard Harvest: ${a.name} and ${b.name} ripen the orchard!`);
++						break;
++					case 'highvoltagesurf':
++						this.add('-message', `High Voltage Surf: ${a.name} and ${b.name} ride the high-voltage current!`);
++						break;
++					case 'steepedhospitality':
++						this.add('-message', `Steeped Hospitality: ${a.name} and ${b.name} serve a revitalizing brew!`);
++						this.heal(a.baseMaxhp / 4, a);
++						this.heal(b.baseMaxhp / 4, b);
++						break;
++					case 'sweetsavory':
++						this.add('-message', `Sweet & Savory: ${a.name} and ${b.name} shield their side with a rich aroma!`);
++						break;
++					case 'mastersquire':
++						this.add('-message', `Master & Squire: ${a.name} and ${b.name} ready their leeks for critical strikes!`);
++						break;
++					case 'caveambush':
++						this.add('-message', `Cave Ambush: ${a.name} and ${b.name} spring a shadowy ambush!`);
++						break;
++					case 'pledgeharmony': {
++						this.add('-message', `Pledge Harmony: ${a.name} and ${b.name} combine their elemental pledges!`);
++						const ids = new Set([this.baseSpeciesId(a), this.baseSpeciesId(b)]);
++						if (ids.has('simisage') && ids.has('simipour')) {
++							a.side.foe.addSideCondition('grasspledge');
++						} else if (ids.has('simisear') && ids.has('simipour')) {
++							a.side.addSideCondition('waterpledge');
++						} else if (ids.has('simisage') && ids.has('simisear')) {
++							a.side.foe.addSideCondition('firepledge');
++						}
++						break;
++					}
++					case 'geneticresonance':
++						this.add('-message', `Genetic Resonance: ${a.name} and ${b.name}'s shared DNA resonates!`);
++						this.boost({ spe: 1 }, a, a);
++						this.boost({ spe: 1 }, b, b);
++						break;
++					case 'magneticcheer':
++						this.add('-message', `Magnetic Cheer: ${a.name} and ${b.name} supercharge each other!`);
++						this.boost({ spa: 1, spe: 1 }, a, a);
++						this.boost({ spa: 1, spe: 1 }, b, b);
++						break;
++					case 'fireflyserenade':
++						this.add('-message', `Firefly Serenade: ${a.name} and ${b.name} glow in harmony!`);
++						this.boost({ def: 1, spd: 1 }, a, a);
++						this.boost({ def: 1, spd: 1 }, b, b);
++						break;
++					case 'twingenerators':
++						this.add('-message', `Twin Generators: ${a.name} and ${b.name} stoke their twin furnaces!`);
++						break;
++					}
++				}
++				if (effect === 'jungletactics') {
++					const oranguru = this.baseSpeciesId(a) === 'oranguru' ? a : b;
++					const passimian = this.baseSpeciesId(a) === 'passimian' ? a : b;
++					const diff: SparseBoostsTable = {};
++					let copied = false;
++					let k: BoostID;
++					for (k in oranguru.boosts) {
++						if (oranguru.boosts[k] > 0 && passimian.boosts[k] < oranguru.boosts[k]) {
++							diff[k] = oranguru.boosts[k] - passimian.boosts[k];
++							copied = true;
++						}
++					}
++					if (copied) this.boost(diff, passimian, oranguru);
++				}
++			}
++		}
++
++		// 2. Natural Enemies (opposing pairs across the field)
++		if (hasEnemies) {
++			const felines = ['persian', 'liepard', 'meowstic', 'purugly', 'delcatty'];
++			const canines = ['mabosstiff', 'houndstone', 'arcanine', 'houndoom', 'lycanroc', 'boltund', 'stoutland'];
++			const kaiju = ['hydreigon', 'baxcalibur', 'duraludon', 'archaludon'];
++			for (const a of allActive) {
++				if (this.baseSpeciesId(a) === 'golisopod' && this.hasEnemyEffect(a, 'abyssalgrudge') && a.switchFlag === true) {
++					a.switchFlag = false;
++					this.add('-message', `Abyssal Grudge: ${a.name} refuses to retreat from Grapploct!`);
++				}
++				for (const b of a.side.foes()) {
++					if (!b || b.fainted) continue;
++					const idA = this.baseSpeciesId(a);
++					const idB = this.baseSpeciesId(b);
++					const markPair = (tag: string) => {
++						const mapA = ((a as any).enemyTriggered ||= {});
++						const mapB = ((b as any).enemyTriggered ||= {});
++						if (mapA[tag] && mapB[tag]) return false;
++						mapA[tag] = true;
++						mapB[tag] = true;
++						return true;
++					};
++					if (idA === 'tinkaton' && (idB === 'corviknight' || idB === 'skarmory')) {
++						if (markPair(`skyhunter:${b.fullname}`)) {
++							this.add('-message', `Sky Hunter: ${a.name} locks onto ${b.name}, grounding it in fear!`);
++							b.addVolatile('smackdown');
++						}
++					}
++					if (idA === 'armarouge' && idB === 'ceruledge') {
++						if (markPair('duelofhonor')) {
++							this.add('-message', `Duel of Honor: ${a.name} and ${b.name} lock eyes for a 1-on-1 duel!`);
++							this.boost({ atk: 1, spa: 1, spe: 1 }, a, a);
++							this.boost({ atk: 1, spa: 1, spe: 1 }, b, b);
++						}
++					}
++					if (idA === 'garchomp' && idB === 'salamence') {
++						if (markPair('apexaerial')) {
++							this.add('-message', `Apex Aerial Clash: ${a.name} and ${b.name} trade defense for reckless speed!`);
++							this.boost({ spe: 1, def: -1, spd: -1 }, a, a);
++							this.boost({ spe: 1, def: -1, spd: -1 }, b, b);
++						}
++					}
++					if (idA === 'golisopod' && idB === 'grapploct') {
++						if (markPair('abyssalgrudge')) {
++							this.add('-message', `Abyssal Grudge: ${a.name} and ${b.name} lock into a relentless grapple!`);
++						}
++					}
++					if (idA === 'gengar' && idB === 'clefable') {
++						if (markPair('shadowdoppelganger')) {
++							this.add('-message', `Shadow Doppelganger: ${a.name} mirrors ${b.name}'s presence!`);
++						}
++						const diff: SparseBoostsTable = {};
++						let copied = false;
++						let k: BoostID;
++						for (k in b.boosts) {
++							if (b.boosts[k] > 0 && a.boosts[k] < b.boosts[k]) {
++								diff[k] = b.boosts[k] - a.boosts[k];
++								copied = true;
++							}
++						}
++						if (copied) this.boost(diff, a, b);
++					}
++					if (idA === 'toxapex' && (idB === 'clawitzer' || idB === 'araquanid')) {
++						if (markPair(`reefturfwar:${b.fullname}`)) {
++							this.add('-message', `Reef Turf War: ${b.name} surges to crack ${a.name}'s bunker!`);
++							this.boost({ atk: 1, spa: 1 }, b, b);
++						}
++					}
++					if (idA === 'hawlucha' && b.hasType('Fighting') && b.weighthg >= 800) {
++						if (markPair(`giantslayer:${b.fullname}`)) {
++							this.add('-message', `Giant Slayer: ${a.name} sizes up the heavyweight ${b.name}!`);
++							this.boost({ atk: 1 }, a, a);
++						}
++					}
++					if (idA === 'heracross' && idB === 'pinsir') {
++						if (markPair('saptreebrawl')) {
++							this.add('-message', `Sap Tree Brawl: ${a.name} and ${b.name} clash with Mold Breaker and Defiant!`);
++						}
++					}
++					if (idA === 'tyranitar' && kaiju.includes(idB)) {
++						if (markPair(`titanclash:${b.fullname}`)) {
++							this.add('-message', `Titan Clash: ${a.name} and ${b.name} shake the battlefield!`);
++						}
++					}
++					if (idA === 'meowscarada' && idB === 'incineroar') {
++						if (markPair('felinesupremacy')) {
++							this.add('-message', `Feline Supremacy: ${a.name} shrugs off intimidation as ${b.name} braces its defense!`);
++							if (a.boosts.atk < 0) {
++								a.boosts.atk = 0;
++								this.add('-clearnegativeboost', a, '[silent]');
++							}
++							this.boost({ def: 1 }, b, b);
++						}
++					}
++					if (idA === 'rillaboom' && idB === 'indeedee') {
++						if (this.field.terrain) {
++							this.add('-message', `Turf Contention: ${a.name} and ${b.name}'s rivalry neutralizes the terrain!`);
++							this.field.clearTerrain();
++						}
++					}
++					if (felines.includes(idA) && canines.includes(idB)) {
++						if (markPair(`catanddog:${a.fullname}:${b.fullname}`)) {
++							this.add('-message', `Cat & Dog: ${a.name} and ${b.name} bristle at each other!`);
++							this.boost({ spe: 1 }, a, a);
++							this.boost({ atk: 1 }, b, b);
++						}
++					}
++					if (idA === 'zangoose' && idB === 'seviper') {
++						if (markPair('bloodfeud')) {
++							this.add('-message', `Blood Feud: ${a.name} and ${b.name} fly into a frenzy on sight!`);
++							this.boost({ atk: 1, spe: 1 }, a, a);
++							this.boost({ atk: 1, spe: 1 }, b, b);
++						}
++					}
++					if (idA === 'heatmor' && idB === 'durant') {
++						if (markPair('predatorprey')) {
++							this.add('-message', `Predator & Prey: ${a.name} corners ${b.name}!`);
++							this.boost({ def: 1, spe: 1 }, b, b);
++						}
++					}
++					if ((idA === 'corsola' || idA === 'cursola') && (idB === 'toxapex' || idB === 'mareanie')) {
++						if (markPair(`coralgrudge:${a.fullname}`)) {
++							this.add('-message', `Coral Grudge: ${a.name}'s resentment flares against ${b.name}!`);
++							this.boost({ spa: 1 }, a, a);
++						}
++					}
++				}
++			}
++		}
++	}
++
++	/** Ally Switch Trade rule: two allied active Pokemon trade places, and so do their controllers */
++	tradeActiveAllies(a: Pokemon, b: Pokemon) {
++		const sideA = a.side;
++		const sideB = b.side;
++		const posA = a.position;
++		const posB = b.position;
++		sideA.pokemon[posA] = b;
++		sideB.pokemon[posB] = a;
++		sideA.active[posA] = b;
++		sideB.active[posB] = a;
++		a.side = sideB;
++		b.side = sideA;
++		a.position = posB;
++		b.position = posA;
++		a.fullname = `${sideB.id}: ${a.name}`;
++		b.fullname = `${sideA.id}: ${b.name}`;
++		this.add('-message', `${sideA.name} and ${sideB.name} traded ${a.name} and ${b.name} with Ally Switch!`);
++		this.add('switch', a, a.getFullDetails);
++		this.add('switch', b, b.getFullDetails);
++	}
++
++	/** Shared Bench rule: moves a benched Pokemon from one ally's side to the other's */
++	transferToSide(pokemon: Pokemon, side: Side) {
++		const from = pokemon.side;
++		from.pokemon.splice(pokemon.position, 1);
++		from.pokemon.forEach((mon, i) => {
++			mon.position = i;
++		});
++		if (!pokemon.fainted) from.pokemonLeft--;
++		pokemon.side = side;
++		pokemon.fullname = `${side.id}: ${pokemon.name}`;
++		pokemon.position = side.pokemon.length;
++		side.pokemon.push(pokemon);
++		if (!pokemon.fainted) side.pokemonLeft++;
++		this.add('-hint', `${side.name} sends out ${from.name}'s ${pokemon.name}!`);
++		this.add('teamsize', from.id, from.pokemon.length);
++		this.add('teamsize', side.id, side.pokemon.length);
++	}
++
+ 	canSwitch(side: Side) {
+ 		return this.possibleSwitches(side).length;
+ 	}
+@@ -1587,7 +2045,8 @@ export class Battle {
+ 	}
+ 
+ 	private possibleSwitches(side: Side) {
+-		if (!side.pokemonLeft) return [];
++		const sharedBench = side.getSharedBench();
++		if (!side.pokemonLeft && !sharedBench.length) return [];
+ 
+ 		// should only be relevant for Gen 3
+ 		const queuedSwitchIns = this.queue.getSwitches(side).map(action => action.target);
+@@ -1599,6 +2058,10 @@ export class Battle {
+ 				canSwitchIn.push(pokemon);
+ 			}
+ 		}
++		// Shared Bench: the ally's benched Pokemon are also options
++		for (const pokemon of sharedBench) {
++			if (!queuedSwitchIns.includes(pokemon)) canSwitchIn.push(pokemon);
++		}
+ 		return canSwitchIn;
+ 	}
+ 
+@@ -2813,14 +3276,18 @@ export class Battle {
++			this.updateKindredAndEnemies();
+ 			return;
+ 		case 'instaswitch':
+ 		case 'switch':
++			if (action.target.side !== action.pokemon.side) this.transferToSide(action.target, action.pokemon.side);
+ 			if (action.choice === 'switch' && action.pokemon.status) {
+ 				this.singleEvent('CheckShow', this.dex.abilities.getByID('naturalcure' as ID), null, action.pokemon);
+ 			}
+ 			this.actions.switchIn(action.target, action.pokemon.position, action.sourceEffect);
++			this.updateKindredAndEnemies();
+ 			break;
+ 		case 'revivalblessing':
+-			action.pokemon.side.pokemonLeft++;
+-			if (action.target.position < action.pokemon.side.active.length) {
++			// (the target may be on the ally's side with the Team Healing rule)
++			action.target.side.pokemonLeft++;
++			if (action.target.position < action.target.side.active.length) {
+ 				this.queue.addChoice({
+ 					choice: 'instaswitch',
+ 					pokemon: action.target,
+@@ -3107,6 +3574,24 @@ export class Battle {
+ 			}
+ 		}
+ 
++		if (side.requestState === 'move' && side.allySide && side.choice.actions.length && this.ruleTable.has('telepathyinsight')) {
++			const reader = side.allySide.active[0];
++			if (reader && !reader.fainted && reader.hasAbility('telepathy') && !side.allySide.choice.actions.length) {
++				this.addSplit(side.allySide.id, ['-hint', `Telepathy: ${side.name} took back their choice.`]);
++			}
++		}
++		if (side.requestState === 'teampreview' && side.allySide && side.choice.actions.length &&
++			this.ruleTable.has('sharedallyteam')) {
++			this.addSplit(side.allySide.id, ['-hint', `${side.name} took back their pick.`]);
++		}
++		if (side.requestState === 'teampreview' && this.ruleTable.has('banpick') &&
++			!(this as any).banPhaseDone && typeof (side as any).bannedFoeSlot === 'number') {
++			delete (side as any).bannedFoeSlot;
++			(side as any).sendBanPickPrompt?.();
++		}
++		if (side.requestState === 'teampreview' && this.ruleTable.has('vgchess')) {
++			(side as any).sendVGChessPrompt?.();
++		}
+ 		side.clearChoice();
+ 
+ 		if (updated) side.emitRequest(side.activeRequest!, true);
+@@ -3287,6 +3772,10 @@ export class Battle {
+ 		const slotNum = parseInt(slot[1]) - 1;
+ 		if (!this.sides[slotNum]) {
+ 			// create player
++			if (slotNum >= 2 && !options.team && this.ruleTable.has('sharedallyteam') && this.sides[slotNum - 2]) {
++				// Shared Ally Team: players 3 and 4 use a copy of their ally's team
++				options.team = Teams.pack(this.sides[slotNum - 2].team);
++			}
+ 			const team = this.getTeam(options);
+ 			side = new Side(options.name || `Player ${slotNum + 1}`, this, slotNum, team);
+ 			if (options.avatar) side.avatar = `${options.avatar}`;
+diff --git a/sim/pokemon.ts b/sim/pokemon.ts
+index d46c1f5..a23aebb 100644
+--- a/sim/pokemon.ts
++++ b/sim/pokemon.ts
+@@ -45,13 +45,13 @@ export const RESTORATIVE_BERRIES = new Set([
+ ] as ID[]);
+ 
+ export class Pokemon {
+-	readonly side: Side;
++	side: Side;
+ 	readonly battle: Battle;
+ 
+ 	readonly set: PokemonSet;
+ 	readonly name: string;
+ 	/** `` `${sideid}: ${name}` `` - used to refer to pokemon in the protocol */
+-	readonly fullname: string;
++	fullname: string;
+ 	readonly level: number;
+ 	readonly gender: GenderName;
+ 	readonly happiness: number;
+diff --git a/sim/side.ts b/sim/side.ts
+index 5e8071c..9bc3ad1 100644
+--- a/sim/side.ts
++++ b/sim/side.ts
+@@ -354,15 +354,63 @@ export class Side {
+ 		return `${this.id}: ${this.name}`;
+ 	}
+ 
++	/**
++	 * Shared Bench rule: the ally's benched, unfainted Pokemon, which this player may also switch in.
++	 * (Not available during team preview.)
++	 */
++	getSharedBench(): Pokemon[] {
++		const ally = this.allySide;
++		if (!ally || this.battle.turn < 1 || !this.battle.ruleTable.has('sharedbench')) return [];
++		return ally.pokemon.slice(ally.active.length).filter(pokemon => !pokemon.fainted);
++	}
++
++	/** Team Healing rule: while Revival Blessing is choosing, the ally's fainted Pokemon can be chosen too */
++	getReviveTargets(): Pokemon[] {
++		const ally = this.allySide;
++		if (!ally || !this.battle.ruleTable.has('teamhealing')) return [];
++		const reviving = this.active.some(pokemon => pokemon && this.slotConditions[pokemon.position]['revivalblessing']);
++		if (!reviving) return [];
++		return ally.pokemon.filter(pokemon => pokemon.fainted);
++	}
++
++	/** Shared Bench rule: has the ally already chosen to switch this Pokemon in this turn? */
++	isClaimedByAlly(pokemon: Pokemon): boolean {
++		const ally = this.allySide;
++		if (!ally || !this.battle.ruleTable.has('sharedbench')) return false;
++		return ally.choice.actions.some(action =>
++			(action.choice === 'switch' || action.choice === 'instaswitch') && action.target === pokemon);
++	}
++
+ 	getRequestData(forAlly?: boolean): SideRequestData {
+ 		const data: SideRequestData = {
+ 			name: this.name,
+ 			id: this.id,
+ 			pokemon: [] as PokemonSwitchRequestData[],
+ 		};
++		const hideBench = !!forAlly && this.battle.ruleTable.has('hideallybench');
+ 		for (const pokemon of this.pokemon) {
++			// Hide Ally Bench: a teammate can't see Pokemon that have never been sent out
++			if (hideBench && !pokemon.isActive && !pokemon.previouslySwitchedIn) continue;
+ 			data.pokemon.push(pokemon.getSwitchRequestData(forAlly));
+ 		}
++		if (!forAlly && this.battle.requestState === 'teampreview' && !(this as any).banPromptSent) {
++			this.sendBanPickPrompt();
++		}
++		if (!forAlly && this.battle.requestState === 'teampreview' && !(this as any).chessPromptSent) {
++			this.sendVGChessPrompt();
++		}
++		if (!forAlly && this.battle.turn >= 1) {
++			this.battle.updateKindredAndEnemies();
++		}
++		if (!forAlly) {
++			// Shared Bench / Team Healing: list the ally's Pokemon as extra switch (or revive) options
++			const extras = this.getReviveTargets();
++			for (const pokemon of extras.length ? extras : this.getSharedBench()) {
++				const entry = pokemon.getSwitchRequestData();
++				entry.ident = `${this.id}: ${pokemon.name}`;
++				data.pokemon.push(entry);
++			}
++		}
+ 		return data;
+ 	}
+ 
+@@ -780,6 +828,9 @@ export class Side {
+ 		if ((mega || megax || megay) && this.choice.mega && !mixandmega) {
+ 			return this.emitChoiceError(`Can't move: You can only mega-evolve once per battle`);
+ 		}
++		if ((mega || megax || megay) && this.allySide?.choice.mega && this.battle.ruleTable.has('onemegaperteam')) {
++			return this.emitChoiceError(`Can't move: ${this.allySide.name} already chose to mega-evolve this turn, and only one Pokémon per team can`);
++		}
+ 		const ultra = (event === 'ultra');
+ 		if (ultra && !pokemon.canUltraBurst) {
+ 			return this.emitChoiceError(`Can't move: ${pokemon.name} can't ultra burst`);
+@@ -924,6 +975,9 @@ export class Side {
+ 			return this.emitChoiceError(`Can't switch: You sent more choices than unfainted Pokémon`);
+ 		}
+ 		const pokemon = this.active[index];
++		const reviveTargets = this.getReviveTargets();
++		const sharedBench = reviveTargets.length ? reviveTargets : this.getSharedBench();
++		const pool = sharedBench.length ? [...this.pokemon, ...sharedBench] : this.pokemon;
+ 		let slot;
+ 		if (!slotText) {
+ 			if (this.requestState !== 'switch') {
+@@ -935,7 +989,14 @@ export class Side {
+ 			} else {
+ 				if (!this.choice.forcedSwitchesLeft) return this.choosePass();
+ 				slot = this.active.length;
+-				while (this.choice.switchIns.has(slot) || this.pokemon[slot].fainted) slot++;
++				while (slot < pool.length && (this.choice.switchIns.has(slot) || pool[slot].fainted ||
++					this.isClaimedByAlly(pool[slot]))) slot++;
++				if (slot >= pool.length) {
++					// Shared Bench: the ally already claimed everything this player could switch to
++					this.choice.forcedSwitchesLeft = 0;
++					this.choice.forcedPassesLeft++;
++					return this.choosePass();
++				}
+ 			}
+ 		} else {
+ 			slot = parseInt(slotText) - 1;
+@@ -943,7 +1004,7 @@ export class Side {
+ 		if (isNaN(slot) || slot < 0) {
+ 			// maybe it's a name/species id!
+ 			slot = -1;
+-			for (const [i, mon] of this.pokemon.entries()) {
++			for (const [i, mon] of pool.entries()) {
+ 				if (slotText!.toLowerCase() === mon.name.toLowerCase() || toID(slotText) === mon.species.id) {
+ 					slot = i;
+ 					break;
+@@ -953,14 +1014,14 @@ export class Side {
+ 				return this.emitChoiceError(`Can't switch: You do not have a Pokémon named "${slotText!}" to switch to`);
+ 			}
+ 		}
+-		if (slot >= this.pokemon.length) {
++		if (slot >= pool.length) {
+ 			return this.emitChoiceError(`Can't switch: You do not have a Pokémon in slot ${slot + 1} to switch to`);
+ 		} else if (slot < this.active.length && !this.slotConditions[pokemon.position]['revivalblessing']) {
+ 			return this.emitChoiceError(`Can't switch: You can't switch to an active Pokémon`);
+ 		} else if (this.choice.switchIns.has(slot)) {
+ 			return this.emitChoiceError(`Can't switch: The Pokémon in slot ${slot + 1} can only switch in once`);
+ 		}
+-		const targetPokemon = this.pokemon[slot];
++		const targetPokemon = pool[slot];
+ 
+ 		if (this.slotConditions[pokemon.position]['revivalblessing']) {
+ 			if (!targetPokemon.fainted) {
+@@ -981,6 +1042,17 @@ export class Side {
+ 			return this.emitChoiceError(`Can't switch: You can't switch to a fainted Pokémon`);
+ 		}
+ 
++		if (this.isClaimedByAlly(targetPokemon)) {
++			const anotherOption = pool.some((mon, i) => i >= this.active.length && !mon.fainted &&
++				!this.choice.switchIns.has(i) && !this.isClaimedByAlly(mon));
++			if (!anotherOption && this.requestState === 'switch') {
++				this.choice.forcedSwitchesLeft = 0;
++				this.choice.forcedPassesLeft++;
++				return this.choosePass();
++			}
++			return this.emitChoiceError(`Can't switch: ${this.allySide!.name} is already switching in ${targetPokemon.name}`);
++		}
++
+ 		if (this.requestState === 'move') {
+ 			if (pokemon.trapped) {
+ 				return this.emitChoiceError(`Can't switch: The active Pokémon is trapped`, { pokemon, update: req => {
+@@ -1070,6 +1142,224 @@ export class Side {
+ 			}
+ 		}
+ 
++		if (ruleTable.has('sharedallyteam') && this.allySide) {
++			// Shared Ally Team: allies pick from the same Pokemon, so they cannot overlap
++			const ally = this.allySide;
++			const taken = new Set<number>();
++			for (const action of ally.choice.actions) {
++				if (action.choice === 'team' && action.pokemon) taken.add(ally.pokemon.indexOf(action.pokemon));
++			}
++			if (!data) {
++				// auto-choose: skip what the ally already picked
++				positions = [...this.pokemon.keys()].filter(i => !taken.has(i));
++				positions.splice(pickedTeamSize);
++			} else {
++				const clash = positions.filter(pos => taken.has(pos));
++				if (clash.length) {
++					return this.emitChoiceError(
++						`Can't choose for Team Preview: ${ally.name} already picked ${clash.map(pos => this.pokemon[pos].name).join(', ')}. Choose different Pokémon.`
++					);
++				}
++			}
++		}
++
++		if (ruleTable.has('banpick') && this.foe) {
++			if (!(this.battle as any).banPhaseDone) {
++				const prevBan = this.getPreviousBo3Ban();
++				const rawDigits = data ? data.replace(/[\s,[\]]/g, '') : '';
++				if (rawDigits.length > 1) {
++					this.sendBanPickPrompt();
++					return this.emitChoiceError(
++						`Ban Phase: First click one of the "Ban" buttons in the battle log above to ban 1 of ${this.foe.name}'s Pokémon.`
++					);
++				}
++				if (rawDigits.length === 1) {
++					const banSlot = parseInt(rawDigits, 10) - 1;
++					if (isNaN(banSlot) || banSlot < 0 || banSlot >= this.foe.pokemon.length) {
++						return this.emitChoiceError(`Can't ban: ${this.foe.name} does not have a Pokémon in slot ${banSlot + 1}.`);
++					}
++					if (prevBan && this.foe.pokemon[banSlot].species.id === prevBan) {
++						this.sendBanPickPrompt();
++						return this.emitChoiceError(
++							`Can't ban: You already banned ${this.foe.pokemon[banSlot].name} in the previous game. In Best-of-3, you cannot ban the same Pokémon two games in a row.`
++						);
++					}
++					(this as any).bannedFoeSlot = banSlot;
++					delete (this as any).timedOutInBan;
++				} else {
++					if (typeof (this as any).bannedFoeSlot !== 'number') {
++						const validSlots = [...this.foe.pokemon.keys()].filter(i => !prevBan || this.foe.pokemon[i].species.id !== prevBan);
++						(this as any).bannedFoeSlot = validSlots.length ? this.battle.sample(validSlots) : this.battle.random(this.foe.pokemon.length);
++					}
++					(this as any).timedOutInBan = true;
++				}
++				if (typeof (this.foe as any).bannedFoeSlot !== 'number') {
++					this.sendBanPickPrompt();
++					(this as any).waitingInBanPhase = true;
++				} else {
++					(this.battle as any).banPhaseDone = true;
++					const p1 = this.battle.sides[0];
++					const p2 = this.battle.sides[1];
++					const p2Banned = p2.pokemon[(p1 as any).bannedFoeSlot];
++					const p1Banned = p1.pokemon[(p2 as any).bannedFoeSlot];
++					(p1Banned as any).bannedByFoe = true;
++					(p2Banned as any).bannedByFoe = true;
++					p1.saveCurrentBo3Ban(p2Banned.species.id);
++					p2.saveCurrentBo3Ban(p1Banned.species.id);
++					this.battle.add('uhtmlchange', 'banpick-p1', '');
++					this.battle.add('uhtmlchange', 'banpick-p2', '');
++					this.battle.add(
++						'html',
++						`<div class="broadcast-red"><strong>Ban Phase Complete!</strong><br />` +
++						`&bull; <strong>${Utils.escapeHTML(p1.name)}</strong> banned <strong>${Utils.escapeHTML(p2.name)}'s ${Utils.escapeHTML(p2Banned.name)}</strong>!<br />` +
++						`&bull; <strong>${Utils.escapeHTML(p2.name)}</strong> banned <strong>${Utils.escapeHTML(p1.name)}'s ${Utils.escapeHTML(p1Banned.name)}</strong>!<br />` +
++						`<strong>Pick Phase (Step 2 of 2):</strong> Choose ${pickedTeamSize} Pokémon (2 leads, then 2 back) from your remaining ${this.pokemon.length - 1} Pokémon below!</div>`
++					);
++					if (data) {
++						(this as any).waitingInBanPhase = true;
++						this.foe.emitRequest(this.foe.activeRequest!, true);
++					} else {
++						if ((this.foe as any).timedOutInBan) {
++							this.foe.autoChoose();
++							this.foe.commitChoices();
++						}
++						positions = [...this.pokemon.keys()].filter(i => !(this.pokemon[i] as any).bannedByFoe);
++						positions.splice(pickedTeamSize);
++					}
++				}
++			} else if (!data) {
++				positions = [...this.pokemon.keys()].filter(i => !(this.pokemon[i] as any).bannedByFoe);
++				positions.splice(pickedTeamSize);
++			} else {
++				const banned = positions.filter(pos => (this.pokemon[pos] as any).bannedByFoe);
++				if (banned.length) {
++					return this.emitChoiceError(
++						`Can't choose for Team Preview: ${banned.map(pos => this.pokemon[pos].name).join(', ')} was banned by ${this.foe.name}. Choose ${pickedTeamSize} of your other Pokémon.`
++					);
++				}
++			}
++		}
++
++		if (ruleTable.has('vgchess')) {
++			interface ChessDraft {
++				king?: number;
++				queen?: number;
++				tacticalRole?: 'rook' | 'bishop' | 'knight';
++				tacticalMon?: number;
++				pawn?: number;
++			}
++			const draft: ChessDraft = ((this as any).chessDraft ||= {});
++			const rawDigits = data ? data.replace(/[\s,[\]]/g, '') : '';
++			const isComplete = () => (
++				typeof draft.king === 'number' &&
++				typeof draft.queen === 'number' &&
++				!!draft.tacticalRole &&
++				typeof draft.tacticalMon === 'number' &&
++				typeof draft.pawn === 'number'
++			);
++			if (!data) {
++				// Auto-complete on timeout if not finished
++				const used = new Set<number>();
++				if (typeof draft.king === 'number') used.add(draft.king);
++				if (typeof draft.queen === 'number') used.add(draft.queen);
++				if (typeof draft.tacticalMon === 'number') used.add(draft.tacticalMon);
++				if (typeof draft.pawn === 'number') used.add(draft.pawn);
++				const pickNextFree = () => {
++					for (let i = 0; i < this.pokemon.length; i++) {
++						if (!used.has(i)) {
++							used.add(i);
++							return i;
++						}
++					}
++					return 0;
++				};
++				if (typeof draft.king !== 'number') draft.king = pickNextFree();
++				if (typeof draft.queen !== 'number') draft.queen = pickNextFree();
++				if (!draft.tacticalRole) draft.tacticalRole = 'knight';
++				if (typeof draft.tacticalMon !== 'number') draft.tacticalMon = pickNextFree();
++				if (typeof draft.pawn !== 'number') draft.pawn = pickNextFree();
++				positions = [draft.pawn, draft.tacticalMon, draft.queen, draft.king];
++			} else if (rawDigits.length === 1) {
++				const num = parseInt(rawDigits, 10);
++				const slot = num - 1;
++				if (isComplete()) {
++					if (num === 1) {
++						(this as any).chessDraft = {};
++						this.sendVGChessPrompt();
++						(this as any).waitingInChessPhase = true;
++					} else {
++						this.sendVGChessPrompt();
++						return this.emitChoiceError(`Your 4 Chess Pieces are assigned! Now click your 4 assigned Pokémon in the Team Preview bar at the bottom (your 2 Leads first, then your 2 Back Pokémon) to lock in.`);
++					}
++				} else if (typeof draft.king !== 'number') {
++					if (isNaN(slot) || slot < 0 || slot >= this.pokemon.length) {
++						return this.emitChoiceError(`Invalid Pokémon slot.`);
++					}
++					draft.king = slot;
++					this.sendVGChessPrompt();
++					(this as any).waitingInChessPhase = true;
++				} else if (typeof draft.queen !== 'number') {
++					if (isNaN(slot) || slot < 0 || slot >= this.pokemon.length || slot === draft.king) {
++						return this.emitChoiceError(`Choose a different Pokémon for your ♕ Queen.`);
++					}
++					draft.queen = slot;
++					this.sendVGChessPrompt();
++					(this as any).waitingInChessPhase = true;
++				} else if (!draft.tacticalRole) {
++					const roleMap: { [k: number]: 'rook' | 'bishop' | 'knight' } = { 1: 'rook', 2: 'bishop', 3: 'knight' };
++					if (!roleMap[num]) {
++						return this.emitChoiceError(`Click one of the 3 Tactical Piece buttons (♖ Rook, ♗ Bishop, or ♘ Knight) in the battle log above.`);
++					}
++					draft.tacticalRole = roleMap[num];
++					this.sendVGChessPrompt();
++					(this as any).waitingInChessPhase = true;
++				} else if (typeof draft.tacticalMon !== 'number') {
++					if (isNaN(slot) || slot < 0 || slot >= this.pokemon.length || slot === draft.king || slot === draft.queen) {
++						return this.emitChoiceError(`Choose one of your unassigned Pokémon for your Tactical Piece.`);
++					}
++					draft.tacticalMon = slot;
++					this.sendVGChessPrompt();
++					(this as any).waitingInChessPhase = true;
++				} else if (typeof draft.pawn !== 'number') {
++					if (isNaN(slot) || slot < 0 || slot >= this.pokemon.length ||
++						slot === draft.king || slot === draft.queen || slot === draft.tacticalMon) {
++						return this.emitChoiceError(`Choose one of your remaining unassigned Pokémon for your ♙ Pawn.`);
++					}
++					draft.pawn = slot;
++					this.sendVGChessPrompt();
++					(this as any).waitingInChessPhase = true;
++				}
++			} else {
++				if (!isComplete()) {
++					this.sendVGChessPrompt();
++					return this.emitChoiceError(
++						`VGChess Setup: First click the buttons in the battle log above to assign your 4 Chess Pieces (♔ King, ♕ Queen, ♖/♗/♘ Tactical Piece, and ♙ Pawn)!`
++					);
++				}
++				const requiredSlots = new Set([draft.king!, draft.queen!, draft.tacticalMon!, draft.pawn!]);
++				const pickedSlots = positions.slice(0, pickedTeamSize);
++				const invalid = pickedSlots.filter(pos => !requiredSlots.has(pos));
++				if (invalid.length) {
++					const assignedNames = [
++						`♔ King: ${this.pokemon[draft.king!].name}`,
++						`♕ Queen: ${this.pokemon[draft.queen!].name}`,
++						`${draft.tacticalRole === 'rook' ? '♖ Rook' : draft.tacticalRole === 'bishop' ? '♗ Bishop' : '♘ Knight'}: ${this.pokemon[draft.tacticalMon!].name}`,
++						`♙ Pawn: ${this.pokemon[draft.pawn!].name}`,
++					].join(', ');
++					return this.emitChoiceError(
++						`Can't choose for Team Preview: You must bring your 4 assigned Chess Piece Pokémon (${assignedNames}). Pick those 4 in the order you want them to lead!`
++					);
++				}
++			}
++			if (isComplete() && !(this as any).waitingInChessPhase) {
++				for (const mon of this.pokemon) delete (mon as any).chessRole;
++				(this.pokemon[draft.king!] as any).chessRole = 'king';
++				(this.pokemon[draft.queen!] as any).chessRole = 'queen';
++				(this.pokemon[draft.tacticalMon!] as any).chessRole = draft.tacticalRole!;
++				(this.pokemon[draft.pawn!] as any).chessRole = 'pawn';
++			}
++		}
++
+ 		const result = ruleTable.onChooseTeam?.[0].call(this.battle, positions, this.pokemon, !data);
+ 		if (result) {
+ 			if (typeof result === 'string') {
+@@ -1091,6 +1381,25 @@ export class Side {
+ 			});
+ 		}
+ 
++		if ((this as any).waitingInBanPhase) {
++			delete (this as any).waitingInBanPhase;
++			this.choice.actions = [];
++			this.choice.switchIns.clear();
++			return true;
++		}
++		if ((this as any).waitingInChessPhase) {
++			delete (this as any).waitingInChessPhase;
++			this.choice.actions = [];
++			this.choice.switchIns.clear();
++			return true;
++		}
++
++		if (ruleTable.has('sharedallyteam') && this.allySide) {
++			const labels = ['lead', 'back'];
++			const picked = positions.map((pos, i) => `${this.pokemon[pos].name} (${labels[i] || `slot ${i + 1}`})`);
++			this.battle.addSplit(this.allySide.id, ['-hint', `${this.name} picked ${picked.join(', ')}.`]);
++		}
++
+ 		return true;
+ 	}
+ 
+@@ -1301,9 +1610,232 @@ export class Side {
+ 			}
+ 		}
+ 
++		if (!this.choice.error && this.requestState === 'move') {
++			for (const pokemon of this.active) {
++				if (pokemon) pokemon.removeVolatile('blitztimeout');
++			}
++			if (this.battle.ruleTable.has('vgcblitztimer') && /^(?:default|auto)$/.test(input.trim())) {
++				this.blitzTimeoutChoice();
++			}
++			this.telepathyHint();
++		}
+ 		return !this.choice.error;
+ 	}
++
++	/**
++	 * Ban Pick (Bo3) rule: returns the species ID of the opponent's Pokemon that this player
++	 * banned in the immediately preceding game of the current Best-of-3 set (or '' if none).
++	 */
++	getPreviousBo3Ban(): string {
++		if (!this.foe || !this.battle.ruleTable.has('bestof')) return '';
++		const myId = toID(this.name);
++		const foeId = toID(this.foe.name);
++		if (!myId || !foeId) return '';
++		try {
++			const fs = require('fs');
++			const file = require('path').join(require('os').tmpdir(), 'ps-bo3-banpick.json');
++			if (fs.existsSync(file)) {
++				const data = JSON.parse(fs.readFileSync(file, 'utf8'));
++				return data[`${myId}->${foeId}`] || '';
++			}
++		} catch {}
++		return '';
++	}
++
++	/**
++	 * Ban Pick (Bo3) rule: records the opponent's Pokemon that this player banned in the current game
++	 * so they cannot ban the same Pokemon two games in a row in the next game of the Best-of-3 set.
++	 */
++	saveCurrentBo3Ban(bannedSpeciesId: string) {
++		if (!this.foe || !this.battle.ruleTable.has('bestof')) return;
++		const myId = toID(this.name);
++		const foeId = toID(this.foe.name);
++		if (!myId || !foeId) return;
++		try {
++			const fs = require('fs');
++			const file = require('path').join(require('os').tmpdir(), 'ps-bo3-banpick.json');
++			const data = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
++			data[`${myId}->${foeId}`] = bannedSpeciesId;
++			fs.writeFileSync(file, JSON.stringify(data));
++		} catch {}
++	}
++
++	/**
++	 * Ban Pick rule: sends or updates the private clickable Ban Phase prompt for this player.
++	 */
++	sendBanPickPrompt() {
++		if (!this.foe || (this.battle as any).banPhaseDone || !this.battle.ruleTable.has('banpick')) return;
++		const chosenSlot: number | undefined = (this as any).bannedFoeSlot;
++		const prevBan = this.getPreviousBo3Ban();
++		const buttons = this.foe.pokemon.map((mon, i) => {
++			if (prevBan && mon.species.id === prevBan) {
++				return `<button class="button disabled" disabled style="margin: 2px; opacity: 0.5; cursor: not-allowed;" title="Banned in the previous game">Ban ${Utils.escapeHTML(mon.name)} (Banned last game)</button>`;
++			}
++			const selected = chosenSlot === i ? ' style="margin: 2px; border: 2px solid #d00; font-weight: bold;"' : ' style="margin: 2px;"';
++			return `<button class="button" name="send" value="/choose team ${i + 1}"${selected}>Ban ${Utils.escapeHTML(mon.name)}</button>`;
++		}).join(' ');
++		const status = typeof chosenSlot === 'number' ?
++			`<br /><em>Locked in: <strong>${Utils.escapeHTML(this.foe.pokemon[chosenSlot].name)}</strong> (hidden until ${Utils.escapeHTML(this.foe.name)} also chooses; click another button to change).</em>` :
++			'';
++		const uhtmlType = (this as any).banPromptSent ? 'uhtmlchange' : 'uhtml';
++		(this as any).banPromptSent = true;
++		this.battle.addSplit(this.id, [
++			uhtmlType,
++			`banpick-${this.id}`,
++			`<div class="broadcast-blue"><strong>Ban Phase (Step 1 of 2):</strong> ` +
++			`Secretly choose 1 of <strong>${Utils.escapeHTML(this.foe.name)}</strong>'s Pokémon to ban ` +
++			`(revealed once both players lock in):<br />${buttons}${status}</div>`,
++		]);
++	}
++
++	/**
++	 * VGChess rule: sends or updates the private interactive Chess Role Assignment prompt for this player.
++	 */
++	sendVGChessPrompt() {
++		if (!this.battle.ruleTable.has('vgchess') || this.battle.requestState !== 'teampreview') return;
++		const draft: {
++			king?: number;
++			queen?: number;
++			tacticalRole?: 'rook' | 'bishop' | 'knight';
++			tacticalMon?: number;
++			pawn?: number;
++		} = ((this as any).chessDraft ||= {});
++		const used = new Set<number>();
++		if (typeof draft.king === 'number') used.add(draft.king);
++		if (typeof draft.queen === 'number') used.add(draft.queen);
++		if (typeof draft.tacticalMon === 'number') used.add(draft.tacticalMon);
++		if (typeof draft.pawn === 'number') used.add(draft.pawn);
++		const roleLabel = (r?: string) => r === 'rook' ? '♖ Rook' : r === 'bishop' ? '♗ Bishop' : '♘ Knight';
++		const summaryParts: string[] = [];
++		if (typeof draft.king === 'number') summaryParts.push(`♔ King: <strong>${Utils.escapeHTML(this.pokemon[draft.king].name)}</strong>`);
++		if (typeof draft.queen === 'number') summaryParts.push(`♕ Queen: <strong>${Utils.escapeHTML(this.pokemon[draft.queen].name)}</strong>`);
++		if (draft.tacticalRole) {
++			const monStr = typeof draft.tacticalMon === 'number' ? `<strong>${Utils.escapeHTML(this.pokemon[draft.tacticalMon].name)}</strong>` : '<em>(choosing Pokémon...)</em>';
++			summaryParts.push(`${roleLabel(draft.tacticalRole)}: ${monStr}`);
++		}
++		if (typeof draft.pawn === 'number') summaryParts.push(`♙ Pawn: <strong>${Utils.escapeHTML(this.pokemon[draft.pawn].name)}</strong>`);
++		const summaryHtml = summaryParts.length ? `<div style="margin-bottom:6px;">Assigned so far: ${summaryParts.join(' &bull; ')}</div>` : '';
++
++		const monButtons = (prefix: string) => this.pokemon.map((mon, i) => {
++			if (used.has(i)) {
++				return `<button class="button disabled" disabled style="margin:2px;opacity:0.45;cursor:not-allowed;">${Utils.escapeHTML(mon.name)} (Assigned)</button>`;
++			}
++			return `<button class="button" name="send" value="/choose team ${i + 1}" style="margin:2px;">${prefix} ${Utils.escapeHTML(mon.name)}</button>`;
++		}).join(' ');
++
++		let stepHtml = '';
++		if (typeof draft.king !== 'number') {
++			stepHtml = `<strong>Step 1 of 5 — Crown your ♔ King:</strong> <em>(Royal Presence: active ally deals 1.2x damage &amp; takes 0.85x damage; if your King faints, you immediately lose by Checkmate!)</em><br />` + monButtons('♔ Crown');
++		} else if (typeof draft.queen !== 'number') {
++			stepHtml = `<strong>Step 2 of 5 — Assign your ♕ Queen:</strong> <em>(Sovereign Might: deals 1.15x damage &amp; ignores redirection; if she faints, active ally gets -1 Atk/-1 SpA)</em><br />` + monButtons('♕ Queen:');
++		} else if (!draft.tacticalRole) {
++			stepHtml = `<strong>Step 3 of 5 — Choose your 3rd Piece's Chess Role:</strong><br />` +
++				`<button class="button" name="send" value="/choose team 1" style="margin:2px;">♖ Rook (+1 Def/SpD Wall, Phaze-Immune, 1.3x Straight-File)</button> ` +
++				`<button class="button" name="send" value="/choose team 2" style="margin:2px;">♗ Bishop (1.3x Diagonal Strike &amp; -1 Spe Pin)</button> ` +
++				`<button class="button" name="send" value="/choose team 3" style="margin:2px;">♘ Knight (Turn-1 Protect Bypass, Hazard/Intimidate-Immune &amp; 1/8 HP Fork)</button>`;
++		} else if (typeof draft.tacticalMon !== 'number') {
++			stepHtml = `<strong>Step 4 of 5 — Assign your ${roleLabel(draft.tacticalRole)} to a Pokémon:</strong><br />` + monButtons(`${roleLabel(draft.tacticalRole)}:`);
++		} else if (typeof draft.pawn !== 'number') {
++			stepHtml = `<strong>Step 5 of 5 — Assign your ♙ Pawn:</strong> <em>(Opening Advance: +1 Priority on first turn, 1/6 HP En Passant on retreating foes, &amp; Promotes to ♕ Queen +1 Atk/SpA/Spe on KO or after 2 turns!)</em><br />` + monButtons('♙ Pawn:');
++		} else {
++			stepHtml = `<strong>✅ All 4 Chess Pieces Assigned!</strong><br />` +
++				`Now click your 4 assigned Pokémon (<strong>${Utils.escapeHTML(this.pokemon[draft.king].name)}</strong>, <strong>${Utils.escapeHTML(this.pokemon[draft.queen].name)}</strong>, <strong>${Utils.escapeHTML(this.pokemon[draft.tacticalMon].name)}</strong>, <strong>${Utils.escapeHTML(this.pokemon[draft.pawn].name)}</strong>) in the <strong>Team Preview bar below</strong> in the order you want them to lead (2 Leads first, then 2 Back)!<br />` +
++				`<button class="button" name="send" value="/choose team 1" style="margin-top:4px;">🔄 Reset Piece Roles</button>`;
++		}
++
++		const uhtmlType = (this as any).chessPromptSent ? 'uhtmlchange' : 'uhtml';
++		(this as any).chessPromptSent = true;
++		this.battle.addSplit(this.id, [
++			uhtmlType,
++			`vgchess-${this.id}`,
++			`<div class="broadcast-blue"><strong>♟️ VGChess Role Assignment (Secret until Battle Starts)</strong><br />${summaryHtml}${stepHtml}</div>`,
++		]);
++	}
++
++	/**
++	 * VGC Blitz Timer rule: when a player runs out of their Time per Turn during a move phase,
++	 * roll independently for each active Pokemon:
++	 * - 80%: choose a random attacking move and target a random opponent
++	 * - 10%: hit itself in confusion, using confusion damage
++	 * - 10%: do nothing
++	 */
++	blitzTimeoutChoice() {
++		for (const action of this.choice.actions) {
++			if (action.choice !== 'move' || !action.pokemon) continue;
++			const pokemon = action.pokemon;
++			const lockedMove = pokemon.getLockedMove() || pokemon.getSemiLockedMove();
++			if (!lockedMove && action.moveid !== 'struggle') {
++				const request = pokemon.getMoveRequestData();
++				const moves = pokemon.getMoves();
++				const enabled = request.moves.map((m, i) => ({ move: m, slot: i })).filter(({ move, slot }) =>
++					!move.disabled && !(slot < moves.length && move.id === moves[slot].id && moves[slot].disabled)
++				);
++				const attacking = enabled.filter(({ move }) =>
++					this.battle.dex.moves.get(move.id).category !== 'Status'
++				);
++				const usableAttacking = pokemon.activeTurns > 1 ?
++					attacking.filter(({ move }) => !['fakeout', 'firstimpression'].includes(move.id)) :
++					attacking;
++				const pool = usableAttacking.length ? usableAttacking : attacking.length ? attacking : enabled;
++				if (pool.length) {
++					const picked = this.battle.sample(pool);
++					action.moveid = picked.move.id;
++					action.moveSlot = picked.slot;
++					const targetType = picked.move.target || 'normal';
++					if (this.battle.actions.targetTypeChoices(targetType)) {
++						if (['normal', 'any', 'adjacentFoe'].includes(targetType)) {
++							const foes = this.foes();
++							action.targetLoc = foes.length ? pokemon.getLocOf(this.battle.sample(foes)) : 0;
++						} else if (targetType === 'adjacentAlly' || targetType === 'adjacentAllyOrSelf') {
++							const allies = this.allies().filter(a => targetType === 'adjacentAllyOrSelf' || a !== pokemon);
++							action.targetLoc = allies.length ? pokemon.getLocOf(this.battle.sample(allies)) : 0;
++						} else {
++							action.targetLoc = 0;
++						}
++					} else {
++						action.targetLoc = 0;
++					}
++				}
++			} else if (lockedMove && !pokemon.volatiles[toID(lockedMove)]?.targetLoc) {
++				const targetType = this.battle.dex.moves.get(lockedMove).target;
++				if (this.battle.actions.targetTypeChoices(targetType) &&
++					['normal', 'any', 'adjacentFoe'].includes(targetType)) {
++					const foes = this.foes();
++					if (foes.length) action.targetLoc = pokemon.getLocOf(this.battle.sample(foes));
++				}
++			}
++			const roll = this.battle.random(10);
++			if (roll === 8) {
++				pokemon.addVolatile('blitztimeout');
++				if (pokemon.volatiles['blitztimeout']) pokemon.volatiles['blitztimeout'].outcome = 'confusion';
++			} else if (roll === 9) {
++				pokemon.addVolatile('blitztimeout');
++				if (pokemon.volatiles['blitztimeout']) pokemon.volatiles['blitztimeout'].outcome = 'nothing';
++			}
++		}
++	}
+ 
++	/**
++	 * Telepathy Insight rule: if the ally's Pokemon has Telepathy and has not chosen yet,
++	 * tell it which move this side just locked in.
++	 */
++	telepathyHint() {
++		const ally = this.allySide;
++		if (!ally || !this.battle.ruleTable.has('telepathyinsight')) return;
++		const reader = ally.active[0];
++		if (!reader || reader.fainted || !reader.hasAbility('telepathy') || ally.choice.actions.length) return;
++		const chosen: string[] = [];
++		for (const action of this.choice.actions) {
++			if (action.choice !== 'move' || !action.pokemon || !action.moveid) continue;
++			const move = this.battle.dex.moves.get(action.moveid);
++			const target = action.targetLoc ? action.pokemon.getAtLoc(action.targetLoc) : null;
++			chosen.push(`${move.name}${target && target !== action.pokemon ? ` on ${target.name}` : ''}` +
++				`${action.mega ? ' (and will Mega Evolve)' : ''}`);
++		}
++		if (!chosen.length) return;
++		this.battle.addSplit(ally.id, ['-hint', `Telepathy: ${this.name}'s ${this.active[0]?.name} chose ${chosen.join(', ')}.`]);
++	}
++
+ 	getChoiceIndex(isPass?: boolean) {
+ 		let index = this.choice.actions.length;
+ 
+VGC_PATCH_EOF
+# Windows line endings would break the patch; remove them.
+tr -d '\r' <"$PATCH_FILE" >"$PATCH_FILE.lf"
+
+echo "[2/5] Downloading Pokemon Showdown..."
+if [ ! -d pokemon-showdown ]; then
+  git clone https://github.com/smogon/pokemon-showdown.git
+fi
+cd pokemon-showdown
+git checkout -q "$COMMIT"
+# Discard any earlier version of our changes so the latest patch always applies cleanly.
+git reset -q --hard "$COMMIT"
+git clean -fd -q
+rm -rf pokemon-showdown-backend regmcf-gateway.js .client-cache .regmcf_web_cache config/archess* data/archess* server/chat-plugins/archess*
+
+echo "[3/5] Applying the custom format and rules..."
+if ! git apply "$PATCH_FILE.lf"; then
+  echo "ERROR: could not apply the patch. Delete the pokemon-showdown folder (rm -rf pokemon-showdown) and run ./setup.sh again." >&2
+  exit 1
+fi
+for rule in "Shared Ally Team" "Shared Bench" "Confusion Friendly Fire" "Infatuation Friendly Fire" "Ally Switch Trade" "Team Healing" "One Mega Per Team" "Partner Item Pass" "Mutual Sacrifice" "Ban Pick" "Kindred Spirits" "Natural Enemies" "Inverse Battle" "Champions Triples" "Reg M-CF" "VGChess" "RBY VGC" "GSC VGC" "ARChess Engine" "Overhead Pain" "Telepathy Insight" "Multi Bo3 Series" "VGC Blitz Timer" "No Chat"; do
+  grep -q "name: '$rule'" data/rulesets.ts || { echo "ERROR: rule '$rule' missing after patching." >&2; exit 1; }
+done
+echo "OK: custom rules installed (Shared Ally Team, Shared Bench, Confusion Friendly Fire, Infatuation Friendly Fire, Ally Switch Trade, Team Healing, One Mega Per Team, Partner Item Pass, Mutual Sacrifice, Ban Pick, Kindred Spirits, Natural Enemies, Inverse Battle, Champions Triples, Reg M-CF, VGChess, RBY VGC, GSC VGC, ARChess Engine, Overhead Pain, Telepathy Insight, Multi Bo3 Series, VGC Blitz Timer, No Chat)."
+
+echo "[4/5] Installing dependencies (this takes a few minutes)..."
+npm install
+cp -n config/config-example.js config/config.js 2>/dev/null || true
+# Dev-server convenience: log in with any name, no password.
+sed -i 's/^exports.noguestsecurity = false;/exports.noguestsecurity = true;/' config/config.js
+sed -i 's/^exports.usesqlite = true;/exports.usesqlite = false;/' config/config.js
+if ! grep -q '^exports.usesqlite = false;' config/config.js; then
+  printf '\nexports.usesqlite = false;\nexports.usesqlitepm = false;\n' >> config/config.js
+fi
+
+echo "[5/5] Building..."
+node build
+
+echo
+echo "Done. Start the server with:  ./start-online.sh   (from the folder that contains this script)"
