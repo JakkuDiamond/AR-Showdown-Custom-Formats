@@ -3,7 +3,7 @@
 # The patch is built into this file, so nothing else needs to be copied. Requires: git, Node.js >= 22.18, npm.
 set -euo pipefail
 COMMIT=d601443456c795f77c6e4f2b5b459167f2b10a3c   # Showdown version this was tested against
-PATCH_VERSION=13629223
+PATCH_VERSION=39018ffc
 
 echo "[1/5] setup.sh patch version $PATCH_VERSION"
 PATCH_FILE="$(mktemp)"
@@ -592,7 +592,7 @@ diff --git a/data/rulesets.ts b/data/rulesets.ts
 index 5103c04..76f3d0c 100644
 --- a/data/rulesets.ts
 +++ b/data/rulesets.ts
-@@ -775,6 +775,1606 @@ export const Rulesets: import('../sim/dex-formats').FormatDataTable = {
+@@ -775,6 +775,1621 @@ export const Rulesets: import('../sim/dex-formats').FormatDataTable = {
  			'Timer Add Per Turn = 5', 'Timer Max Per Turn = 15', 'Timer Max First Turn = 40',
  		],
  	},
@@ -1179,10 +1179,25 @@ index 5103c04..76f3d0c 100644
 +			if (!effect || effect.effectType !== 'Move') return;
 +			if (!source || !target || source === target || source.isAlly(target)) return;
 +			if (source.fainted || source.hp <= 0) return;
-+			if ((effect as any).__vgcPossessionDone) return;
-+			(effect as any).__vgcPossessionDone = true;
++			if (this.activeMove && (this.activeMove as any).__vgcPossessionDone) return;
++			if (this.activeMove) (this.activeMove as any).__vgcPossessionDone = true;
 +			const stolenItem = target.item;
-+			source.transformInto(target, this.effect);
++			const wasFainted = target.fainted;
++			const targetWasTransformed = target.transformed;
++			const subVolatile = target.volatiles['substitute'];
++			target.fainted = false;
++			target.transformed = false;
++			source.transformed = false;
++			if (subVolatile) delete target.volatiles['substitute'];
++			let transformed = false;
++			try {
++				transformed = source.transformInto(target, this.effect);
++			} finally {
++				target.fainted = wasFainted;
++				target.transformed = targetWasTransformed;
++				if (subVolatile) target.volatiles['substitute'] = subVolatile;
++			}
++			if (!transformed) return;
 +			if (stolenItem) {
 +				source.setItem(stolenItem);
 +				this.add('-item', source, this.dex.items.get(stolenItem).name, '[from] VGC Possession', `[of] ${target}`);
@@ -2199,7 +2214,7 @@ index 5103c04..76f3d0c 100644
  	vgctimer: {
  		effectType: 'Rule',
  		name: 'VGC Timer',
-@@ -785,6 +2385,19 @@ export const Rulesets: import('../sim/dex-formats').FormatDataTable = {
+@@ -785,6 +2400,19 @@ export const Rulesets: import('../sim/dex-formats').FormatDataTable = {
  			'Timeout Auto Choose', 'DC Timer Bank',
  		],
  	},
